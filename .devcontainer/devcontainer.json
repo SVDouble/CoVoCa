@@ -1,0 +1,25 @@
+{
+  "name": "gaussian-splatting",
+  "build": {
+    "dockerfile": "ubuntu/Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": true,
+        "clangd.path": "/usr/bin/clangd",
+        "clangd.arguments": [
+          "--query-driver=/usr/bin/g++"
+        ],
+        "cmake.useCMakePresets": "always",
+        "cmake.configureOnOpen": true
+      },
+      "extensions": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-vscode.cmake-tools"
+      ]
+    }
+  },
+  "postCreateCommand": "make project",
+  "remoteUser": "vscode"
+}

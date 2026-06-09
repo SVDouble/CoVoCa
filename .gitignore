@@ -1,0 +1,105 @@
+# Build outputs
+/build/
+/cmake-build-*/
+/out/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+CTestTestfile.cmake
+Testing/
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+_deps/
+*-prefix/
+
+# Local CMake/editor user presets
+CMakeLists.txt.user
+CMakeUserPresets.json
+
+# Compiled artifacts
+*.a
+*.app
+*.d
+*.dll
+*.dylib
+*.exe
+*.gch
+*.lib
+*.lo
+*.mod
+*.o
+*.obj
+*.out
+*.pch
+*.slo
+*.so
+*.so.*
+
+# LaTeX byproducts
+*.acn
+*.acr
+*.alg
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.brf
+*.fdb_latexmk
+*.fls
+*.glg
+*.glo
+*.gls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.pdfsync
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+docs/proposal/main.pdf
+
+# Local datasets and generated experiment artifacts
+/captures/
+/data/
+/datasets/
+/exports/
+/outputs/
+/results/
+/runs/
+
+!/captures/.gitkeep
+!/data/.gitkeep
+!/datasets/.gitkeep
+!/exports/.gitkeep
+!/outputs/.gitkeep
+!/results/.gitkeep
+!/runs/.gitkeep
+
+# Shared VS Code config is committed; personal files stay local.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+
+# Local editor/cache files
+.cache/
+.idea/
+*.bak
+*.sav
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db

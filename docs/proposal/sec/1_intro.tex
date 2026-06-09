@@ -1,0 +1,10 @@
+\section{Problem Introduction}
+\label{sec:intro}
+
+3D reconstruction from multi-view images is a fundamental problem in computer vision, with applications in robotics, augmented reality, digital archiving, and scene understanding. Classical geometry-based methods, such as Voxel Carving and Space Carving~\cite{KutulakosSeitz2000SpaceCarving}, reconstruct object shape by enforcing consistency across calibrated camera views. These methods are conceptually simple, deterministic, and require little optimization, but their reconstruction quality is strongly limited by voxel resolution, segmentation quality, and the accuracy of the available camera poses.
+
+Recent point-based radiance-field methods have significantly improved the quality and efficiency of novel-view synthesis. In particular, 3D Gaussian Splatting (3DGS, \cite{Kerbl2023GaussianSplatting}) represents a scene as a set of optimized anisotropic 3D Gaussians and combines differentiable splatting, visibility-aware rendering, and adaptive density control to achieve high-quality real-time rendering. However, these advantages come with a more complex optimization pipeline and a greater implementation effort than those of classical reconstruction methods.
+
+The goal of this project is to implement the core components of 3D Gaussian Splatting and compare them against a classical Voxel Carving baseline. This comparison allows us to analyze the trade-offs between explicit volumetric reconstruction and optimized point-based scene representations under controlled acquisition conditions.
+
+For this purpose, we will capture custom multi-view datasets and estimate camera poses using ArUco marker boards~\cite{GarridoJurado2014ArUco}. The comparison will focus on reconstruction quality, rendering performance, memory usage, and robustness across challenging object properties, including reflective, textureless, and weakly textured surfaces.

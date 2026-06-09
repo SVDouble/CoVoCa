@@ -1,0 +1,17 @@
+\section{Weekly Milestones}
+\begin{itemize}
+\setlength{\itemsep}{0.5em}
+
+\item \textbf{Week 1 (9.6--15.6):} We will capture initial multi-view datasets, estimate camera intrinsics and extrinsics using ArUco markers and OpenCV, and prepare a basic dataset structure containing images, camera parameters, and foreground masks. We will also begin implementing a simple voxel-carving prototype based on binary silhouettes.
+
+\item \textbf{Week 2 (16.6--22.6):} We will refine the voxel carving pipeline and test it on the captured datasets. This includes improving silhouette handling, selecting a suitable voxel grid resolution, and exporting the reconstruction for visualization. In parallel, we will start setting up the basic data structures required for the Gaussian Splatting implementation.
+
+\item \textbf{Week 3 (23.6--29.6):} We will implement a first simplified Gaussian Splatting prototype. The initial version will use a reduced Gaussian representation and focus on projecting Gaussians into calibrated camera views and rendering approximate image-space splats. The goal of this week is to obtain a first working rendering pipeline rather than a fully optimized reconstruction.
+
+\item \textbf{Week 4 (30.6--6.7):} We will work on optimizing the Gaussian representation against the reference images. Depending on the renderer's progress, we will optimize a subset of the Gaussian parameters, such as position, scale, opacity, and color. We will also compare intermediate results with the voxel carving baseline to identify the main differences and failure cases.
+
+\item \textbf{Week 5 (7.7--13.7):} We will improve the Gaussian Splatting prototype by adding selected components from the original method where feasible. Possible extensions include anisotropic Gaussians, better visibility handling, pruning of low-opacity Gaussians, or simple density refinement. The exact focus will depend on which parts of the basic pipeline require the most improvement.
+
+\item \textbf{Week 6 (14.7--21.7):} We will run the final experiments and compare the voxel carving baseline with our Gaussian Splatting implementation. The evaluation will consider visual quality, reconstruction behavior, runtime, memory usage, and robustness for different object types. Finally, we will summarize the results, discuss limitations, and prepare the final report and presentation.
+
+\end{itemize}
