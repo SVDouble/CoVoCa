@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gsplat-toolkit"
+version = "0.1.0"
+description = "Python helper toolkit for Gaussian Splatting data preparation and analysis."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+download-aruco-sample = "gsplat_toolkit.download_aruco_sample:main"
+
+[project.optional-dependencies]
+plot = [
+    "plotly>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "mdformat>=0.7",
+    "pre-commit>=4.0",
+    "ruff>=0.8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gsplat_toolkit"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "E",
+    "F",
+    "I",
+    "SIM",
+    "UP",
+]

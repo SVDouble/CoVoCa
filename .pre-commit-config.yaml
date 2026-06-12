@@ -1,0 +1,21 @@
+repos:
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format
+        entry: clang-format -i
+        language: system
+        files: ^(apps|include|src)/.*\.(c|cc|cpp|cxx|h|hpp)$
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --project gsplat_toolkit --group dev --python 3.14 ruff format
+        language: system
+        files: ^gsplat_toolkit/src/.*\.py$
+
+      - id: mdformat
+        name: mdformat
+        entry: uv run --project gsplat_toolkit --group dev --python 3.14 mdformat
+        language: system
+        types:
+          - markdown
