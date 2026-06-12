@@ -1,10 +1,11 @@
 PROJECT_PRESET ?= debug
-PROJECT_BUILD_PRESET ?= debug-aruco-calibrate
+PROJECT_BUILD_PRESET ?= debug-voxel-carve
 PYTHON_TOOLS_DIR := covoca_toolkit
 CALIBRATION_CONFIG ?= configs/calibration/aruco_sample.yaml
 CALIBRATION_RESULT ?= data/sample_aruco/calibration_result.yaml
 CALIBRATION_VISUALIZATION_DIR ?= data/sample_aruco/calibration_axes
 CALIBRATION_AXIS_LENGTH_M ?= 0.05625
+VOXEL_CARVING_CONFIG ?= configs/voxel_carving/sample.yaml
 CXX_FORMAT_FILES := $(shell find apps include src -type f \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null | sort)
 CXX_LINT_FILES := $(shell find apps src -type f -name '*.cpp' 2>/dev/null | sort)
 
@@ -25,7 +26,7 @@ DOC_ENV := \
 	BIBINPUTS="$(abspath $(DOC_DIR))//:" \
 	BSTINPUTS="$(abspath $(DOC_DIR))//:"
 
-.PHONY: all project configure build release calibration format format-check lint static-analysis sanitize memcheck quality python-format python-format-check python-lint python-check pre-commit pre-commit-install python-tools-build download-sample-data calibrate-sample visualize-calibration docs clean clean-project clean-docs help
+.PHONY: all project configure build release run calibration format format-check lint static-analysis sanitize memcheck quality python-format python-format-check python-lint python-check pre-commit pre-commit-install python-tools-build download-sample-data calibrate-sample visualize-calibration voxel-carve-sample docs clean clean-project clean-docs help
 
 all: project docs
 
@@ -39,7 +40,10 @@ build: configure
 
 release:
 	cmake --preset release
-	cmake --build --preset release-aruco-calibrate
+	cmake --build --preset release-voxel-carve
+
+run: build
+	./build/debug/voxel_carve run --config $(VOXEL_CARVING_CONFIG)
 
 calibration: configure
 	cmake --build --preset $(PROJECT_PRESET) --target aruco_calibrate
@@ -65,9 +69,11 @@ static-analysis:
 sanitize:
 	cmake --preset debug-asan
 	cmake --build --preset debug-asan
+	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ./build/debug-asan/voxel_carve --help >/dev/null
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ./build/debug-asan/aruco_calibrate --help >/dev/null
 
 memcheck: build calibration
+	valgrind --leak-check=full --show-leak-kinds=definite,indirect --error-exitcode=1 ./build/debug/voxel_carve --help >/dev/null
 	valgrind --leak-check=full --show-leak-kinds=definite,indirect --error-exitcode=1 ./build/debug/aruco_calibrate --help >/dev/null
 
 quality: format-check lint static-analysis python-check sanitize memcheck
@@ -101,6 +107,10 @@ calibrate-sample: download-sample-data calibration
 visualize-calibration: calibration
 	./build/debug/aruco_calibrate visualize --result $(CALIBRATION_RESULT) --output-dir $(CALIBRATION_VISUALIZATION_DIR) --axis-length-m $(CALIBRATION_AXIS_LENGTH_M)
 
+voxel-carve-sample:
+	cmake --build --preset debug-voxel-carve
+	./build/debug/voxel_carve run --config $(VOXEL_CARVING_CONFIG)
+
 docs: $(DOC_PDF)
 
 $(DOC_PDF): $(DOC_SOURCES)
@@ -132,6 +142,7 @@ help:
 	@echo "Targets:"
 	@echo "  make project       Configure and build the default debug project target"
 	@echo "  make release       Configure and build the release project target"
+	@echo "  make run           Build and run ./build/debug/voxel_carve"
 	@echo "  make calibration   Build the ArUco calibration executable"
 	@echo "  make format        Format C++ sources with clang-format"
 	@echo "  make format-check  Verify C++ formatting"
@@ -154,6 +165,8 @@ help:
 	@echo "                     Download sample data and write $(CALIBRATION_RESULT)"
 	@echo "  make visualize-calibration"
 	@echo "                     Draw calibrated coordinate axes into sample images"
+	@echo "  make voxel-carve-sample"
+	@echo "                     Build and run voxel_carve against $(VOXEL_CARVING_CONFIG)"
 	@echo "  make docs          Build the proposal PDF at $(DOC_PDF)"
 	@echo "  make all           Build project and docs"
 	@echo "  make clean         Remove project and docs build outputs"

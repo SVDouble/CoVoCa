@@ -129,7 +129,7 @@ Use the same reflect-cpp config pattern as calibration:
 
 ## Required C++ Interfaces
 
-Namespace: `gs::voxel_carving`.
+Namespace: `covoca::voxel_carving`.
 
 ### `VoxelCarvingConfig`
 

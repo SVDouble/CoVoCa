@@ -3,6 +3,7 @@
 Configuration files are grouped by executable or pipeline entry point:
 
 - `calibration/`: camera calibration and coordinate-system visualization.
+- `voxel_carving/`: color voxel carving settings.
 
 Paths are interpreted relative to the repository root when using the root
 `Makefile` targets.

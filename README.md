@@ -19,14 +19,15 @@ users can use `vcpkg.json`.
 
 ```bash
 cmake --preset debug
-cmake --build --preset debug-aruco-calibrate
-./build/debug/aruco_calibrate --help
+cmake --build --preset debug-voxel-carve
+./build/debug/voxel_carve run --config configs/voxel_carving/sample.yaml
 ```
 
 Make targets:
 
 ```bash
 make project
+make run
 make release
 ```
 
@@ -117,6 +118,7 @@ src/covoca/           C++ implementations
 1. Estimate intrinsics and poses with OpenCV ArUco boards.
 1. Create foreground masks.
 1. Build an Open3D-comparable voxel-carving baseline.
+1. Apply color voxel carving for textured reconstructions.
 
 ## Dependencies
 

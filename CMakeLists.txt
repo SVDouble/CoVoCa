@@ -129,3 +129,39 @@ target_link_libraries(aruco_calibrate PRIVATE
     covoca_project_options
     spdlog::spdlog
 )
+
+add_library(covoca_voxel_carving
+    src/covoca/voxel_carving/VoxelCarvingConfig.cpp
+    src/covoca/voxel_carving/VoxelVolume.cpp
+    src/covoca/voxel_carving/SilhouetteMask.cpp
+    src/covoca/voxel_carving/CalibratedView.cpp
+    src/covoca/voxel_carving/SilhouetteConsistency.cpp
+    src/covoca/voxel_carving/VoxelCarver.cpp
+    src/covoca/voxel_carving/VoxelExport.cpp
+)
+
+target_include_directories(covoca_voxel_carving PUBLIC
+    include
+)
+
+target_link_libraries(covoca_voxel_carving
+    PUBLIC
+        Eigen3::Eigen
+        covoca_config
+        covoca_calibration
+        ${OpenCV_LIBS}
+    PRIVATE
+        covoca_project_options
+        spdlog::spdlog
+)
+
+add_executable(voxel_carve
+    apps/voxel_carve.cpp
+)
+
+target_link_libraries(voxel_carve PRIVATE
+    CLI11::CLI11
+    covoca_voxel_carving
+    covoca_project_options
+    spdlog::spdlog
+)

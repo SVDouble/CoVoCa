@@ -76,6 +76,14 @@
       "configurePreset": "debug"
     },
     {
+      "name": "debug-voxel-carve",
+      "displayName": "Debug: voxel_carve",
+      "configurePreset": "debug",
+      "targets": [
+        "voxel_carve"
+      ]
+    },
+    {
       "name": "debug-asan",
       "displayName": "Debug + sanitizers",
       "configurePreset": "debug-asan"
@@ -102,6 +110,14 @@
       "name": "release",
       "displayName": "Release",
       "configurePreset": "release"
+    },
+    {
+      "name": "release-voxel-carve",
+      "displayName": "Release: voxel_carve",
+      "configurePreset": "release",
+      "targets": [
+        "voxel_carve"
+      ]
     },
     {
       "name": "release-vcpkg",
