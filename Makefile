@@ -1,6 +1,10 @@
 PROJECT_PRESET ?= debug
 PROJECT_BUILD_PRESET ?= debug-voxel-demo
 PYTHON_TOOLS_DIR := gsplat_toolkit
+CALIBRATION_CONFIG ?= configs/calibration/aruco_sample.yaml
+CALIBRATION_RESULT ?= data/sample_aruco/calibration_result.yaml
+CALIBRATION_VISUALIZATION_DIR ?= data/sample_aruco/calibration_axes
+CALIBRATION_AXIS_LENGTH_M ?= 0.05625
 CXX_FORMAT_FILES := $(shell find apps include src -type f \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null | sort)
 CXX_LINT_FILES := $(shell find apps src -type f -name '*.cpp' 2>/dev/null | sort)
 
@@ -21,7 +25,7 @@ DOC_ENV := \
 	BIBINPUTS="$(abspath $(DOC_DIR))//:" \
 	BSTINPUTS="$(abspath $(DOC_DIR))//:"
 
-.PHONY: all project configure build release run format format-check lint static-analysis sanitize memcheck quality python-format python-format-check python-lint python-check pre-commit pre-commit-install python-tools-build download-sample-data docs clean clean-project clean-docs help
+.PHONY: all project configure build release run calibration format format-check lint static-analysis sanitize memcheck quality python-format python-format-check python-lint python-check pre-commit pre-commit-install python-tools-build download-sample-data calibrate-sample visualize-calibration docs clean clean-project clean-docs help
 
 all: project docs
 
@@ -39,6 +43,9 @@ release:
 
 run: build
 	./build/debug/voxel_demo
+
+calibration: configure
+	cmake --build --preset $(PROJECT_PRESET) --target aruco_calibrate
 
 format:
 	clang-format -i $(CXX_FORMAT_FILES)
@@ -62,9 +69,11 @@ sanitize:
 	cmake --preset debug-asan
 	cmake --build --preset debug-asan
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ./build/debug-asan/voxel_demo
+	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ./build/debug-asan/aruco_calibrate --help >/dev/null
 
-memcheck: build
+memcheck: build calibration
 	valgrind --leak-check=full --show-leak-kinds=definite,indirect --error-exitcode=1 ./build/debug/voxel_demo
+	valgrind --leak-check=full --show-leak-kinds=definite,indirect --error-exitcode=1 ./build/debug/aruco_calibrate --help >/dev/null
 
 quality: format-check lint static-analysis python-check sanitize memcheck
 
@@ -90,6 +99,12 @@ python-tools-build:
 
 download-sample-data:
 	uv run --project $(PYTHON_TOOLS_DIR) --python 3.14 download-aruco-sample
+
+calibrate-sample: download-sample-data calibration
+	./build/debug/aruco_calibrate calibrate --config $(CALIBRATION_CONFIG)
+
+visualize-calibration: calibration
+	./build/debug/aruco_calibrate visualize --result $(CALIBRATION_RESULT) --output-dir $(CALIBRATION_VISUALIZATION_DIR) --axis-length-m $(CALIBRATION_AXIS_LENGTH_M)
 
 docs: $(DOC_PDF)
 
@@ -123,6 +138,7 @@ help:
 	@echo "  make project       Configure and build the default debug project target"
 	@echo "  make release       Configure and build the release project target"
 	@echo "  make run           Build and run ./build/debug/voxel_demo"
+	@echo "  make calibration   Build the ArUco calibration executable"
 	@echo "  make format        Format C++ sources with clang-format"
 	@echo "  make format-check  Verify C++ formatting"
 	@echo "  make lint          Run clang-tidy over C++ sources"
@@ -140,6 +156,10 @@ help:
 	@echo "                     Build the gsplat-toolkit Python package with uv"
 	@echo "  make download-sample-data"
 	@echo "                     Download public ArUco sample images into data/sample_aruco"
+	@echo "  make calibrate-sample"
+	@echo "                     Download sample data and write $(CALIBRATION_RESULT)"
+	@echo "  make visualize-calibration"
+	@echo "                     Draw calibrated coordinate axes into sample images"
 	@echo "  make docs          Build the proposal PDF at $(DOC_PDF)"
 	@echo "  make all           Build project and docs"
 	@echo "  make clean         Remove project and docs build outputs"

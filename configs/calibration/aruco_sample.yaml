@@ -1,0 +1,24 @@
+schema: gs.calibration.config.v1
+name: sample_aruco_gridboard
+
+paths:
+  images: data/sample_aruco/aruco_data
+  result: data/sample_aruco/calibration_result.yaml
+
+board:
+  type: aruco_grid
+  dictionary: DICT_6X6_1000
+  markers_x: 4
+  markers_y: 5
+  marker_length_m: 0.0375
+  marker_separation_m: 0.005
+
+detector:
+  min_markers_per_frame: 4
+  refine_detections: true
+  corner_refinement: subpix
+
+calibration:
+  fix_k4: true
+  fix_k5: true
+  fix_k6: true

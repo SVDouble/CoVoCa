@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 2,
   "cmakeMinimumRequired": {
     "major": 3,
     "minor": 20,
@@ -99,6 +99,14 @@
       "configurePreset": "debug-vcpkg"
     },
     {
+      "name": "debug-aruco-calibrate",
+      "displayName": "Debug: aruco_calibrate",
+      "configurePreset": "debug",
+      "targets": [
+        "aruco_calibrate"
+      ]
+    },
+    {
       "name": "release",
       "displayName": "Release",
       "configurePreset": "release"
@@ -115,6 +123,14 @@
       "name": "release-vcpkg",
       "displayName": "Release + vcpkg",
       "configurePreset": "release-vcpkg"
+    },
+    {
+      "name": "release-aruco-calibrate",
+      "displayName": "Release: aruco_calibrate",
+      "configurePreset": "release",
+      "targets": [
+        "aruco_calibrate"
+      ]
     }
   ]
 }
