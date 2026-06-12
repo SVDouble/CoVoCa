@@ -14,7 +14,7 @@ namespace covoca::voxel_carving {
 class ColorImage {
   public:
     /**
-     * @brief Loads a color image.
+     * Loads a color image.
      *
      * Args:
      *   path: Path to the frame's source image (the same image used for
@@ -26,7 +26,7 @@ class ColorImage {
     static ColorImage load(const std::filesystem::path& path);
 
     /**
-     * @brief Samples the RGB color at a (possibly fractional) pixel.
+     * Samples the RGB color at a (possibly fractional) pixel.
      *
      * Args:
      *   pixel: Pixel coordinate; floored to the containing pixel.

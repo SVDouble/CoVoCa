@@ -8,7 +8,7 @@
 namespace covoca::calibration {
 
 /**
- * @brief Calibrates intrinsics and board-to-camera poses.
+ * Calibrates intrinsics and board-to-camera poses.
  *
  * Args:
  *   config: Calibration config.
@@ -20,7 +20,7 @@ namespace covoca::calibration {
 CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std::filesystem::path& sourceConfigPath);
 
 /**
- * @brief Writes coordinate-axis overlays.
+ * Writes coordinate-axis overlays.
  *
  * Args:
  *   result: Calibration result.

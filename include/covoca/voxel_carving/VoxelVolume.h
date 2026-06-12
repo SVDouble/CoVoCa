@@ -11,9 +11,16 @@ namespace covoca::voxel_carving {
 
 /// 3D grid coordinates of a voxel.
 struct GridIndex {
-    int x = 0;
-    int y = 0;
-    int z = 0;
+    std::size_t x = 0;
+    std::size_t y = 0;
+    std::size_t z = 0;
+};
+
+/// Voxel grid dimensions along `(x, y, z)`.
+struct GridDimensions {
+    std::size_t x = 0;
+    std::size_t y = 0;
+    std::size_t z = 0;
 };
 
 /// Dense, axis-aligned voxel volume with per-voxel occupancy.
@@ -23,7 +30,7 @@ struct GridIndex {
 class VoxelVolume {
   public:
     /**
-     * @brief Builds a dense voxel grid covering an axis-aligned box.
+     * Builds a dense voxel grid covering an axis-aligned box.
      *
      * Grid dimensions are `ceil((maxCorner - minCorner) / voxelSizeMeters)`
      * per axis, with a minimum of 1 voxel per axis. All voxels start
@@ -48,7 +55,7 @@ class VoxelVolume {
     }
 
     /// Grid dimensions `(nx, ny, nz)`.
-    [[nodiscard]] const Eigen::Vector3i& dims() const {
+    [[nodiscard]] const GridDimensions& dims() const {
         return dims_;
     }
 
@@ -63,7 +70,7 @@ class VoxelVolume {
     }
 
     /**
-     * @brief Converts a flat storage index to grid coordinates.
+     * Converts a flat storage index to grid coordinates.
      *
      * Args:
      *   flatIndex: Index into the flat occupancy array, using order
@@ -75,7 +82,7 @@ class VoxelVolume {
     [[nodiscard]] GridIndex gridIndex(std::size_t flatIndex) const;
 
     /**
-     * @brief Converts grid coordinates to a flat storage index.
+     * Converts grid coordinates to a flat storage index.
      *
      * Args:
      *   index: Grid coordinates.
@@ -86,7 +93,7 @@ class VoxelVolume {
     [[nodiscard]] std::size_t flatIndex(GridIndex index) const;
 
     /**
-     * @brief Computes the world-space center of a voxel.
+     * Computes the world-space center of a voxel.
      *
      * Args:
      *   index: Grid coordinates of the voxel.
@@ -97,7 +104,7 @@ class VoxelVolume {
     [[nodiscard]] Eigen::Vector3d center(GridIndex index) const;
 
     /**
-     * @brief Computes the 8 world-space corners of a voxel.
+     * Computes the 8 world-space corners of a voxel.
      *
      * Args:
      *   index: Grid coordinates of the voxel.
@@ -109,7 +116,7 @@ class VoxelVolume {
     [[nodiscard]] std::array<Eigen::Vector3d, 8> corners(GridIndex index) const;
 
     /**
-     * @brief Checks whether a voxel is occupied.
+     * Checks whether a voxel is occupied.
      *
      * Args:
      *   index: Grid coordinates of the voxel.
@@ -120,7 +127,7 @@ class VoxelVolume {
     [[nodiscard]] bool isOccupied(GridIndex index) const;
 
     /**
-     * @brief Sets a voxel's occupancy.
+     * Sets a voxel's occupancy.
      *
      * Args:
      *   index: Grid coordinates of the voxel.
@@ -131,7 +138,7 @@ class VoxelVolume {
   private:
     Eigen::Vector3d minCorner_ = Eigen::Vector3d::Zero();
     double voxelSize_ = 0.0;
-    Eigen::Vector3i dims_ = Eigen::Vector3i::Zero();
+    GridDimensions dims_;
     std::vector<std::uint8_t> occupied_;
 };
 

@@ -12,7 +12,7 @@ namespace covoca::voxel_carving {
 class SilhouetteConsistency {
   public:
     /**
-     * @brief Builds a consistency checker from carving settings.
+     * Builds a consistency checker from carving settings.
      *
      * Args:
      *   config: Sample policy, outside-image policy, and threshold settings.
@@ -20,7 +20,7 @@ class SilhouetteConsistency {
     explicit SilhouetteConsistency(CarvingConfig config);
 
     /**
-     * @brief Checks a voxel against every view's silhouette mask.
+     * Checks a voxel against every view's silhouette mask.
      *
      * Samples the voxel according to `config.sample_policy`, projects each
      * sample into each view, and applies `config.outside_image_policy` to

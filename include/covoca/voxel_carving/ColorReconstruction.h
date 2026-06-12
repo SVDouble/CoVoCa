@@ -55,7 +55,7 @@ using ColorReconstructor = Rgb (*)(std::span<const ColorSample> samples);
 [[nodiscard]] Rgb reconstructMedianColor(std::span<const ColorSample> samples);
 
 /**
- * @brief Selects the color reconstruction function for a `ColorConfig::method`.
+ * Selects the color reconstruction function for a `ColorConfig::method`.
  *
  * Args:
  *   method: One of `"average"`, `"best_view"`, `"weighted_average"`, or

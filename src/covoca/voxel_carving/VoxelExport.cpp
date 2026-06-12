@@ -11,7 +11,7 @@ namespace covoca::voxel_carving {
 namespace {
 
 /**
- * @brief Opens a file for writing, creating parent directories first.
+ * Opens a file for writing, creating parent directories first.
  *
  * Args:
  *   path: Output file path.
@@ -31,7 +31,7 @@ std::ofstream openOutput(const std::filesystem::path& path) {
 }
 
 /**
- * @brief Collects the grid coordinates of all occupied voxels.
+ * Collects the grid coordinates of all occupied voxels.
  *
  * Args:
  *   volume: Volume to scan.
@@ -41,6 +41,7 @@ std::ofstream openOutput(const std::filesystem::path& path) {
  */
 std::vector<GridIndex> occupiedIndices(const VoxelVolume& volume) {
     std::vector<GridIndex> indices;
+    indices.reserve(volume.voxelCount());
     for (std::size_t flat = 0; flat < volume.voxelCount(); ++flat) {
         const GridIndex index = volume.gridIndex(flat);
         if (volume.isOccupied(index)) {
@@ -51,7 +52,7 @@ std::vector<GridIndex> occupiedIndices(const VoxelVolume& volume) {
 }
 
 // Quads over the 8 corners returned by VoxelVolume::corners(), indexed by dz*4 + dy*2 + dx.
-constexpr std::array<std::array<int, 4>, 6> kCubeFaces{{
+constexpr std::array<std::array<std::size_t, 4>, 6> kCubeFaces{{
     {0, 1, 3, 2}, // z = 0
     {4, 5, 7, 6}, // z = 1
     {0, 1, 5, 4}, // y = 0
@@ -60,29 +61,37 @@ constexpr std::array<std::array<int, 4>, 6> kCubeFaces{{
     {1, 3, 7, 5}, // x = 1
 }};
 
-bool isOff(ExportFormat format) {
-    return format.value() == ExportFormat::value_of<"off">();
-}
-
 } // namespace
 
 /**
- * @brief Writes a vertex's color columns, if colors are being written.
+ * Writes a vertex's color columns, if colors are being written.
  *
  * Args:
  *   stream: Output stream, positioned just after the vertex coordinates.
  *   rgb: Color to write, in `(red, green, blue)` order.
  */
 void writeVertexColor(std::ofstream& stream, const Rgb& rgb) {
-    stream << " " << static_cast<int>(rgb[0]) << " " << static_cast<int>(rgb[1]) << " " << static_cast<int>(rgb[2]);
+    const int red = rgb[0];
+    const int green = rgb[1];
+    const int blue = rgb[2];
+    stream << " " << red << " " << green << " " << blue;
 }
 
+/**
+ * Writes occupied voxel centers to an ASCII PLY/OFF point cloud.
+ *
+ * Args:
+ *   path: Output path.
+ *   volume: Source voxel volume.
+ *   format: Output file format.
+ *   colors: Optional per-voxel colors.
+ */
 void writeOccupiedPoints(const std::filesystem::path& path, const VoxelVolume& volume, ExportFormat format,
                          const VoxelColors* colors) {
     const std::vector<GridIndex> indices = occupiedIndices(volume);
 
     std::ofstream stream = openOutput(path);
-    if (isOff(format)) {
+    if (format.value() == ExportFormat::value_of<"off">()) {
         stream << (colors != nullptr ? "COFF\n" : "OFF\n") << indices.size() << " 0 0\n";
     } else {
         stream << "ply\n"
@@ -111,13 +120,22 @@ void writeOccupiedPoints(const std::filesystem::path& path, const VoxelVolume& v
     }
 }
 
+/**
+ * Writes occupied voxels to an ASCII PLY/OFF cube mesh.
+ *
+ * Args:
+ *   path: Output path.
+ *   volume: Source voxel volume.
+ *   format: Output file format.
+ *   colors: Optional per-voxel colors applied to cube vertices.
+ */
 void writeOccupiedCubeMesh(const std::filesystem::path& path, const VoxelVolume& volume, ExportFormat format,
                            const VoxelColors* colors) {
     const std::vector<GridIndex> indices = occupiedIndices(volume);
     const std::size_t triangleCount = indices.size() * kCubeFaces.size() * 2;
 
     std::ofstream stream = openOutput(path);
-    if (isOff(format)) {
+    if (format.value() == ExportFormat::value_of<"off">()) {
         stream << (colors != nullptr ? "COFF\n" : "OFF\n") << (indices.size() * 8) << " " << triangleCount << " 0\n";
     } else {
         stream << "ply\n"
@@ -150,7 +168,7 @@ void writeOccupiedCubeMesh(const std::filesystem::path& path, const VoxelVolume&
     }
 
     for (std::size_t voxel = 0; voxel < indices.size(); ++voxel) {
-        const int base = static_cast<int>(voxel * 8);
+        const std::size_t base = voxel * 8;
         for (const auto& face : kCubeFaces) {
             stream << "3 " << (base + face[0]) << " " << (base + face[1]) << " " << (base + face[2]) << "\n";
             stream << "3 " << (base + face[0]) << " " << (base + face[2]) << " " << (base + face[3]) << "\n";

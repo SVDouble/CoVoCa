@@ -9,7 +9,7 @@
 namespace covoca::voxel_carving {
 
 /**
- * @brief Writes occupied voxel centers as an ASCII point cloud.
+ * Writes occupied voxel centers as an ASCII point cloud.
  *
  * Args:
  *   path: Output file path; parent directories are created if needed.
@@ -22,7 +22,7 @@ void writeOccupiedPoints(const std::filesystem::path& path, const VoxelVolume& v
                          const VoxelColors* colors = nullptr);
 
 /**
- * @brief Writes occupied voxels as an ASCII cube mesh.
+ * Writes occupied voxels as an ASCII cube mesh.
  *
  * Each occupied voxel becomes a cube: 8 vertices (from
  * `VoxelVolume::corners`) and 12 triangles (2 per face).

@@ -6,12 +6,32 @@
 
 namespace covoca::voxel_carving {
 
+/**
+ * Loads a voxel-carving config and applies domain validation.
+ *
+ * Args:
+ *   path: YAML or JSON config path.
+ *
+ * Returns:
+ *   Validated voxel-carving config.
+ */
 VoxelCarvingConfig loadVoxelCarvingConfig(const std::filesystem::path& path) {
     auto config = covoca::config::loadTypedConfig<VoxelCarvingConfig>(path, "voxel carving config");
     validateVoxelCarvingConfig(config);
     return config;
 }
 
+/**
+ * Validates constraints that are not expressible in the typed model.
+ *
+ * Args:
+ *   config: Parsed voxel-carving config.
+ *
+ * Throws:
+ *   std::runtime_error: If a path field is empty, the volume bounds are
+ *   invalid, the mask threshold is outside `[0, 255]`, or an output filename
+ *   is missing.
+ */
 void validateVoxelCarvingConfig(const VoxelCarvingConfig& config) {
     if (config.name.empty()) {
         throw std::runtime_error("config field must not be empty: name");

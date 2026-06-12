@@ -12,6 +12,19 @@ namespace fs = std::filesystem;
 
 namespace {
 
+/**
+ * Runs ArUco GridBoard camera calibration from a config file.
+ *
+ * Loads input images, estimates the shared camera intrinsics plus one
+ * board-to-camera pose per accepted frame, and writes the typed calibration
+ * result to the configured output path.
+ *
+ * Args:
+ *   configPath: Path to a `gs.calibration.config.v1` YAML or JSON config.
+ *
+ * Returns:
+ *   Process exit code. `0` means calibration completed successfully.
+ */
 int calibrate(const fs::path& configPath) {
     const auto config = covoca::calibration::loadCalibrationConfig(configPath);
     const auto result = covoca::calibration::runArucoCalibration(config, configPath);
@@ -23,6 +36,17 @@ int calibrate(const fs::path& configPath) {
     return 0;
 }
 
+/**
+ * Renders coordinate-axis overlays for accepted calibration frames.
+ *
+ * Args:
+ *   resultPath: Path to a `gs.calibration.result.v1` YAML or JSON result.
+ *   outputDir: Directory where overlay images are written.
+ *   axisLengthMeters: Length of each rendered coordinate axis, in meters.
+ *
+ * Returns:
+ *   Process exit code. `0` means every overlay was written successfully.
+ */
 int visualize(const fs::path& resultPath, const fs::path& outputDir, double axisLengthMeters) {
     const auto result = covoca::calibration::loadCalibrationResult(resultPath);
     const int written = covoca::calibration::writeCoordinateSystemVisualizations(result, outputDir, axisLengthMeters);
@@ -30,6 +54,16 @@ int visualize(const fs::path& resultPath, const fs::path& outputDir, double axis
     return 0;
 }
 
+/**
+ * Parses and dispatches the `aruco_calibrate` CLI.
+ *
+ * Args:
+ *   argc: Argument count from `main`.
+ *   argv: Argument vector from `main`.
+ *
+ * Returns:
+ *   Process exit code from CLI parsing or the selected subcommand.
+ */
 int runCli(int argc, char** argv) {
     CLI::App app("Estimate and inspect ArUco GridBoard camera calibration.");
     app.require_subcommand(1);
@@ -75,6 +109,16 @@ int runCli(int argc, char** argv) {
 
 } // namespace
 
+/**
+ * Application entrypoint.
+ *
+ * Args:
+ *   argc: Argument count.
+ *   argv: Argument vector.
+ *
+ * Returns:
+ *   Process exit code.
+ */
 int main(int argc, char** argv) {
     spdlog::set_pattern("%v");
 

@@ -19,7 +19,6 @@ using OutsideImagePolicy = rfl::Literal<"carve", "keep", "ignore_view">;
 using ExportFormat = rfl::Literal<"ply", "off">;
 using ColorMethod = rfl::Literal<"average", "best_view", "weighted_average", "median">;
 using covoca::config::PositiveDouble;
-using covoca::config::PositiveInt;
 
 /// Filesystem inputs and outputs for one voxel-carving run.
 ///
@@ -91,11 +90,6 @@ struct CarvingConfig {
     /// each mask: pixels with intensity >= this value become foreground
     /// (255), everything else becomes background (0).
     int foreground_threshold;
-
-    /// Reserved for future use: the minimum number of views that must agree
-    /// a voxel is consistent before it is kept. Currently unused by the
-    /// Stage-1 implementation, which checks every available view.
-    PositiveInt min_required_views;
 };
 
 /// Export output file names, relative to `paths.output_dir`.
@@ -181,7 +175,7 @@ struct VoxelCarvingConfig {
 };
 
 /**
- * @brief Loads and validates voxel-carving config.
+ * Loads and validates voxel-carving config.
  *
  * Args:
  *   path: YAML or JSON config path.
@@ -192,7 +186,7 @@ struct VoxelCarvingConfig {
 VoxelCarvingConfig loadVoxelCarvingConfig(const std::filesystem::path& path);
 
 /**
- * @brief Validates voxel-carving config.
+ * Validates voxel-carving config.
  *
  * Args:
  *   config: Configuration to validate.

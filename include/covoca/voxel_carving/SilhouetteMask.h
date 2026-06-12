@@ -11,7 +11,7 @@ namespace covoca::voxel_carving {
 class SilhouetteMask {
   public:
     /**
-     * @brief Loads a grayscale mask image and binarizes it.
+     * Loads a grayscale mask image and binarizes it.
      *
      * Args:
      *   path: Path to a grayscale mask image.
@@ -25,7 +25,7 @@ class SilhouetteMask {
     static SilhouetteMask load(const std::filesystem::path& path, int foregroundThreshold);
 
     /**
-     * @brief Checks whether a pixel is foreground.
+     * Checks whether a pixel is foreground.
      *
      * Args:
      *   x: Pixel column.
@@ -38,7 +38,7 @@ class SilhouetteMask {
     [[nodiscard]] bool containsForeground(int x, int y) const;
 
     /**
-     * @brief Checks whether a (possibly fractional) pixel is foreground.
+     * Checks whether a (possibly fractional) pixel is foreground.
      *
      * Args:
      *   pixel: Pixel coordinate; floored to the containing pixel.

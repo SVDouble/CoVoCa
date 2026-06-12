@@ -65,7 +65,7 @@ struct CalibrationResult {
 };
 
 /**
- * @brief Writes calibration result YAML.
+ * Writes calibration result YAML.
  *
  * Args:
  *   path: Destination YAML file.
@@ -74,7 +74,7 @@ struct CalibrationResult {
 void saveCalibrationResult(const std::filesystem::path& path, const CalibrationResult& result);
 
 /**
- * @brief Loads and validates calibration result.
+ * Loads and validates calibration result.
  *
  * Args:
  *   path: YAML or JSON result path.

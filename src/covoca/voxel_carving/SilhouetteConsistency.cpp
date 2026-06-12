@@ -12,14 +12,10 @@ namespace {
 struct SamplePoints {
     std::array<Eigen::Vector3d, 9> points;
     std::size_t count = 0;
-
-    [[nodiscard]] std::span<const Eigen::Vector3d> view() const {
-        return {points.data(), count};
-    }
 };
 
 /**
- * @brief Builds the world-space sample points for a voxel.
+ * Builds the world-space sample points for a voxel.
  *
  * Args:
  *   volume: Voxel volume the voxel belongs to.
@@ -46,17 +42,35 @@ SamplePoints samplePoints(const VoxelVolume& volume, GridIndex voxel, const Samp
 
 } // namespace
 
+/**
+ * Stores silhouette consistency settings.
+ *
+ * Args:
+ *   config: Carving policy configuration.
+ */
 SilhouetteConsistency::SilhouetteConsistency(CarvingConfig config) : config_(config) {}
 
+/**
+ * Tests whether a voxel is consistent with every usable silhouette.
+ *
+ * Args:
+ *   volume: Voxel volume containing `voxel`.
+ *   voxel: Grid coordinates of the voxel being tested.
+ *   views: Calibrated silhouette views.
+ *
+ * Returns:
+ *   True if no non-ignored view provides background evidence for the voxel.
+ */
 bool SilhouetteConsistency::isConsistent(const VoxelVolume& volume, GridIndex voxel,
                                          std::span<const CalibratedView> views) const {
     const SamplePoints samples = samplePoints(volume, voxel, config_.sample_policy);
+    const std::span<const Eigen::Vector3d> sampleView{samples.points.data(), samples.count};
 
     for (const CalibratedView& view : views) {
         bool viewIgnored = false;
         bool viewHasBackground = false;
 
-        for (const Eigen::Vector3d& sample : samples.view()) {
+        for (const Eigen::Vector3d& sample : sampleView) {
             const ProjectionResult projection = view.projectWorldPoint(sample);
             if (!projection.inFront || !projection.insideImage) {
                 // Sample falls outside this view; outside_image_policy decides whether

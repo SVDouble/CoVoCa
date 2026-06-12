@@ -27,7 +27,7 @@ struct VoxelCarvingResult {
 class VoxelCarver {
   public:
     /**
-     * @brief Builds a carver from a voxel-carving config.
+     * Builds a carver from a voxel-carving config.
      *
      * Args:
      *   config: Volume bounds, voxel size, and carving settings.
@@ -35,7 +35,7 @@ class VoxelCarver {
     explicit VoxelCarver(VoxelCarvingConfig config);
 
     /**
-     * @brief Builds the voxel volume and carves it against every view.
+     * Builds the voxel volume and carves it against every view.
      *
      * Creates a dense `VoxelVolume` over `config.volume`, then for every
      * voxel checks `SilhouetteConsistency::isConsistent` and clears

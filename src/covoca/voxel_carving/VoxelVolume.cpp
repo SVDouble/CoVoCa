@@ -6,6 +6,21 @@
 
 namespace covoca::voxel_carving {
 
+/**
+ * Creates an occupied voxel grid over an axis-aligned box.
+ *
+ * Args:
+ *   minCorner: Lower world-space volume corner, in meters.
+ *   maxCorner: Upper world-space volume corner, in meters.
+ *   voxelSizeMeters: Cubic voxel edge length, in meters.
+ *
+ * Returns:
+ *   Dense volume with every voxel initially marked occupied.
+ *
+ * Throws:
+ *   std::invalid_argument: If the voxel size is non-positive or any max
+ *   bound is not greater than the corresponding min bound.
+ */
 VoxelVolume VoxelVolume::create(const Eigen::Vector3d& minCorner, const Eigen::Vector3d& maxCorner,
                                 double voxelSizeMeters) {
     if (voxelSizeMeters <= 0.0) {
@@ -20,57 +35,109 @@ VoxelVolume VoxelVolume::create(const Eigen::Vector3d& minCorner, const Eigen::V
     volume.voxelSize_ = voxelSizeMeters;
 
     const Eigen::Vector3d extent = maxCorner - minCorner;
-    for (int axis = 0; axis < 3; ++axis) {
-        volume.dims_[axis] = std::max(1, static_cast<int>(std::ceil(extent[axis] / voxelSizeMeters)));
-    }
+    volume.dims_ = GridDimensions{
+        .x = std::max<std::size_t>(1, static_cast<std::size_t>(std::ceil(extent.x() / voxelSizeMeters))),
+        .y = std::max<std::size_t>(1, static_cast<std::size_t>(std::ceil(extent.y() / voxelSizeMeters))),
+        .z = std::max<std::size_t>(1, static_cast<std::size_t>(std::ceil(extent.z() / voxelSizeMeters))),
+    };
 
-    const auto count = static_cast<std::size_t>(volume.dims_.x()) * static_cast<std::size_t>(volume.dims_.y()) *
-                       static_cast<std::size_t>(volume.dims_.z());
+    const std::size_t count = volume.dims_.x * volume.dims_.y * volume.dims_.z;
     volume.occupied_.assign(count, 1);
     return volume;
 }
 
+/**
+ * Converts a flat voxel index to `(x, y, z)` grid coordinates.
+ *
+ * Args:
+ *   flatIndex: Index in flat storage order.
+ *
+ * Returns:
+ *   Grid coordinates for `flatIndex`.
+ */
 GridIndex VoxelVolume::gridIndex(std::size_t flatIndex) const {
-    const auto nx = static_cast<std::size_t>(dims_.x());
-    const auto ny = static_cast<std::size_t>(dims_.y());
-    const std::size_t x = flatIndex % nx;
-    const std::size_t y = (flatIndex / nx) % ny;
-    const std::size_t z = flatIndex / (nx * ny);
-    return GridIndex{.x = static_cast<int>(x), .y = static_cast<int>(y), .z = static_cast<int>(z)};
+    const std::size_t x = flatIndex % dims_.x;
+    const std::size_t y = (flatIndex / dims_.x) % dims_.y;
+    const std::size_t z = flatIndex / (dims_.x * dims_.y);
+    return GridIndex{.x = x, .y = y, .z = z};
 }
 
+/**
+ * Converts grid coordinates to a flat voxel index.
+ *
+ * Args:
+ *   index: Grid coordinates.
+ *
+ * Returns:
+ *   Flat storage index for `index`.
+ */
 std::size_t VoxelVolume::flatIndex(GridIndex index) const {
-    const auto nx = static_cast<std::size_t>(dims_.x());
-    const auto ny = static_cast<std::size_t>(dims_.y());
-    return (((static_cast<std::size_t>(index.z) * ny) + static_cast<std::size_t>(index.y)) * nx) +
-           static_cast<std::size_t>(index.x);
+    return (((index.z * dims_.y) + index.y) * dims_.x) + index.x;
 }
 
+/**
+ * Computes the world-space center of a voxel.
+ *
+ * Args:
+ *   index: Grid coordinates of the voxel.
+ *
+ * Returns:
+ *   Center point in meters.
+ */
 Eigen::Vector3d VoxelVolume::center(GridIndex index) const {
-    return minCorner_ +
-           Eigen::Vector3d{(index.x + 0.5) * voxelSize_, (index.y + 0.5) * voxelSize_, (index.z + 0.5) * voxelSize_};
+    return minCorner_ + Eigen::Vector3d{(static_cast<double>(index.x) + 0.5) * voxelSize_,
+                                        (static_cast<double>(index.y) + 0.5) * voxelSize_,
+                                        (static_cast<double>(index.z) + 0.5) * voxelSize_};
 }
 
+/**
+ * Computes the world-space cube corners of a voxel.
+ *
+ * Args:
+ *   index: Grid coordinates of the voxel.
+ *
+ * Returns:
+ *   Eight corner points in `dz * 4 + dy * 2 + dx` order.
+ */
 std::array<Eigen::Vector3d, 8> VoxelVolume::corners(GridIndex index) const {
-    const Eigen::Vector3d origin =
-        minCorner_ + Eigen::Vector3d{index.x * voxelSize_, index.y * voxelSize_, index.z * voxelSize_};
+    const Eigen::Vector3d origin = minCorner_ + Eigen::Vector3d{static_cast<double>(index.x) * voxelSize_,
+                                                                static_cast<double>(index.y) * voxelSize_,
+                                                                static_cast<double>(index.z) * voxelSize_};
     // Order matches the corner index dz*4 + dy*2 + dx used by VoxelExport's face table.
     std::array<Eigen::Vector3d, 8> result;
     std::size_t i = 0;
-    for (int dz = 0; dz <= 1; ++dz) {
-        for (int dy = 0; dy <= 1; ++dy) {
-            for (int dx = 0; dx <= 1; ++dx) {
-                result[i++] = origin + Eigen::Vector3d{dx * voxelSize_, dy * voxelSize_, dz * voxelSize_};
+    for (std::size_t dz = 0; dz < 2; ++dz) {
+        for (std::size_t dy = 0; dy < 2; ++dy) {
+            for (std::size_t dx = 0; dx < 2; ++dx) {
+                result[i++] =
+                    origin + Eigen::Vector3d{static_cast<double>(dx) * voxelSize_, static_cast<double>(dy) * voxelSize_,
+                                             static_cast<double>(dz) * voxelSize_};
             }
         }
     }
     return result;
 }
 
+/**
+ * Checks whether a voxel is currently occupied.
+ *
+ * Args:
+ *   index: Grid coordinates of the voxel.
+ *
+ * Returns:
+ *   True if the voxel has not been carved away.
+ */
 bool VoxelVolume::isOccupied(GridIndex index) const {
     return occupied_.at(flatIndex(index)) != 0;
 }
 
+/**
+ * Updates a voxel's occupancy state.
+ *
+ * Args:
+ *   index: Grid coordinates of the voxel.
+ *   occupied: New occupancy value.
+ */
 void VoxelVolume::setOccupied(GridIndex index, bool occupied) {
     occupied_.at(flatIndex(index)) = occupied ? 1 : 0;
 }

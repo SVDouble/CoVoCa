@@ -12,6 +12,16 @@
 
 namespace covoca::config {
 
+/**
+ * Returns a path's lowercase file extension.
+ *
+ * Args:
+ *   path: Path whose extension should be normalized.
+ *
+ * Returns:
+ *   Lowercase extension including the leading dot, or an empty string if the
+ *   path has no extension.
+ */
 inline std::string lowerExtension(const std::filesystem::path& path) {
     std::string extension = path.extension().string();
     std::ranges::transform(extension, extension.begin(),
@@ -19,6 +29,23 @@ inline std::string lowerExtension(const std::filesystem::path& path) {
     return extension;
 }
 
+/**
+ * Loads a strongly typed config/result model from YAML or JSON.
+ *
+ * Uses reflect-cpp with `rfl::NoExtraFields`, so unknown keys are rejected
+ * before domain-specific validation runs.
+ *
+ * Args:
+ *   path: Path to a `.yaml`, `.yml`, or `.json` file.
+ *   description: Human-readable model name used in error messages.
+ *
+ * Returns:
+ *   Parsed model of type `T`.
+ *
+ * Throws:
+ *   std::runtime_error: If the extension is unsupported, parsing fails, or
+ *   reflect-cpp validation fails.
+ */
 template <typename T> T loadTypedConfig(const std::filesystem::path& path, const std::string& description) {
     const auto extension = lowerExtension(path);
     if (extension == ".yaml" || extension == ".yml") {

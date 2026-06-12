@@ -7,8 +7,23 @@
 
 namespace covoca::voxel_carving {
 
+/**
+ * Stores the configuration for later carving runs.
+ *
+ * Args:
+ *   config: Voxel-carving configuration.
+ */
 VoxelCarver::VoxelCarver(VoxelCarvingConfig config) : config_(std::move(config)) {}
 
+/**
+ * Builds and carves the configured voxel volume.
+ *
+ * Args:
+ *   views: Calibrated silhouette views used for consistency checks.
+ *
+ * Returns:
+ *   Carved volume plus voxel-count and timing statistics.
+ */
 VoxelCarvingResult VoxelCarver::run(std::span<const CalibratedView> views) const {
     const auto start = std::chrono::steady_clock::now();
 

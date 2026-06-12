@@ -1,12 +1,13 @@
 #include "covoca/calibration/ArucoCalibration.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
+#include <string_view>
 #include <utility>
 
 #include <Eigen/Dense>
@@ -26,15 +27,21 @@ std::string toLower(std::string value) {
     return value;
 }
 
-std::string normalizeDictionaryName(std::string name) {
-    if (name.starts_with("cv::aruco::")) {
-        name.erase(0, std::string("cv::aruco::").size());
+std::string_view normalizeDictionaryName(std::string_view name) {
+    constexpr std::string_view prefix = "cv::aruco::";
+    if (name.starts_with(prefix)) {
+        name.remove_prefix(prefix.size());
     }
     return name;
 }
 
+struct DictionaryEntry {
+    std::string_view name;
+    cv::aruco::PredefinedDictionaryType type;
+};
+
 /**
- * @brief Looks up an OpenCV ArUco dictionary by config name.
+ * Looks up an OpenCV ArUco dictionary by config name.
  *
  * Args:
  *   rawName: Dictionary name, optionally prefixed with `cv::aruco::`.
@@ -43,39 +50,41 @@ std::string normalizeDictionaryName(std::string name) {
  *   OpenCV predefined dictionary type when supported.
  */
 std::optional<cv::aruco::PredefinedDictionaryType> dictionaryTypeFromName(const std::string& rawName) {
-    static const std::unordered_map<std::string, cv::aruco::PredefinedDictionaryType> dictionaries = {
-        {"DICT_4X4_50", cv::aruco::DICT_4X4_50},
-        {"DICT_4X4_100", cv::aruco::DICT_4X4_100},
-        {"DICT_4X4_250", cv::aruco::DICT_4X4_250},
-        {"DICT_4X4_1000", cv::aruco::DICT_4X4_1000},
-        {"DICT_5X5_50", cv::aruco::DICT_5X5_50},
-        {"DICT_5X5_100", cv::aruco::DICT_5X5_100},
-        {"DICT_5X5_250", cv::aruco::DICT_5X5_250},
-        {"DICT_5X5_1000", cv::aruco::DICT_5X5_1000},
-        {"DICT_6X6_50", cv::aruco::DICT_6X6_50},
-        {"DICT_6X6_100", cv::aruco::DICT_6X6_100},
-        {"DICT_6X6_250", cv::aruco::DICT_6X6_250},
-        {"DICT_6X6_1000", cv::aruco::DICT_6X6_1000},
-        {"DICT_7X7_50", cv::aruco::DICT_7X7_50},
-        {"DICT_7X7_100", cv::aruco::DICT_7X7_100},
-        {"DICT_7X7_250", cv::aruco::DICT_7X7_250},
-        {"DICT_7X7_1000", cv::aruco::DICT_7X7_1000},
-        {"DICT_ARUCO_ORIGINAL", cv::aruco::DICT_ARUCO_ORIGINAL},
-        {"DICT_APRILTAG_16h5", cv::aruco::DICT_APRILTAG_16h5},
-        {"DICT_APRILTAG_25h9", cv::aruco::DICT_APRILTAG_25h9},
-        {"DICT_APRILTAG_36h10", cv::aruco::DICT_APRILTAG_36h10},
-        {"DICT_APRILTAG_36h11", cv::aruco::DICT_APRILTAG_36h11},
+    static constexpr std::array dictionaries{
+        DictionaryEntry{.name = "DICT_4X4_50", .type = cv::aruco::DICT_4X4_50},
+        DictionaryEntry{.name = "DICT_4X4_100", .type = cv::aruco::DICT_4X4_100},
+        DictionaryEntry{.name = "DICT_4X4_250", .type = cv::aruco::DICT_4X4_250},
+        DictionaryEntry{.name = "DICT_4X4_1000", .type = cv::aruco::DICT_4X4_1000},
+        DictionaryEntry{.name = "DICT_5X5_50", .type = cv::aruco::DICT_5X5_50},
+        DictionaryEntry{.name = "DICT_5X5_100", .type = cv::aruco::DICT_5X5_100},
+        DictionaryEntry{.name = "DICT_5X5_250", .type = cv::aruco::DICT_5X5_250},
+        DictionaryEntry{.name = "DICT_5X5_1000", .type = cv::aruco::DICT_5X5_1000},
+        DictionaryEntry{.name = "DICT_6X6_50", .type = cv::aruco::DICT_6X6_50},
+        DictionaryEntry{.name = "DICT_6X6_100", .type = cv::aruco::DICT_6X6_100},
+        DictionaryEntry{.name = "DICT_6X6_250", .type = cv::aruco::DICT_6X6_250},
+        DictionaryEntry{.name = "DICT_6X6_1000", .type = cv::aruco::DICT_6X6_1000},
+        DictionaryEntry{.name = "DICT_7X7_50", .type = cv::aruco::DICT_7X7_50},
+        DictionaryEntry{.name = "DICT_7X7_100", .type = cv::aruco::DICT_7X7_100},
+        DictionaryEntry{.name = "DICT_7X7_250", .type = cv::aruco::DICT_7X7_250},
+        DictionaryEntry{.name = "DICT_7X7_1000", .type = cv::aruco::DICT_7X7_1000},
+        DictionaryEntry{.name = "DICT_ARUCO_ORIGINAL", .type = cv::aruco::DICT_ARUCO_ORIGINAL},
+        DictionaryEntry{.name = "DICT_APRILTAG_16h5", .type = cv::aruco::DICT_APRILTAG_16h5},
+        DictionaryEntry{.name = "DICT_APRILTAG_25h9", .type = cv::aruco::DICT_APRILTAG_25h9},
+        DictionaryEntry{.name = "DICT_APRILTAG_36h10", .type = cv::aruco::DICT_APRILTAG_36h10},
+        DictionaryEntry{.name = "DICT_APRILTAG_36h11", .type = cv::aruco::DICT_APRILTAG_36h11},
     };
 
     const auto name = normalizeDictionaryName(rawName);
-    if (const auto it = dictionaries.find(name); it != dictionaries.end()) {
-        return it->second;
+    for (const DictionaryEntry& dictionary : dictionaries) {
+        if (dictionary.name == name) {
+            return dictionary.type;
+        }
     }
     return std::nullopt;
 }
 
 /**
- * @brief Converts the configured corner refinement name to OpenCV flags.
+ * Converts the configured corner refinement name to OpenCV flags.
  *
  * Args:
  *   name: Config value for `detector.corner_refinement`.
@@ -97,7 +106,7 @@ int cornerRefinementMethodFromName(const std::string& name) {
 }
 
 /**
- * @brief Converts calibration config booleans to OpenCV calibration flags.
+ * Converts calibration config booleans to OpenCV calibration flags.
  *
  * Args:
  *   config: Lens calibration flags.
@@ -126,7 +135,7 @@ bool isSupportedImage(const fs::path& path) {
 }
 
 /**
- * @brief Collects supported image files from a path.
+ * Collects supported image files from a path.
  *
  * Args:
  *   input: Image file or directory to scan recursively.
@@ -160,7 +169,7 @@ std::vector<fs::path> collectImages(const fs::path& input) {
 }
 
 /**
- * @brief Computes per-frame reprojection RMSE.
+ * Computes per-frame reprojection RMSE.
  *
  * Args:
  *   objectPoints: Matched 3D board points.
@@ -189,7 +198,7 @@ double meanReprojectionError(const std::vector<cv::Point3f>& objectPoints, const
 }
 
 /**
- * @brief Converts an OpenCV vector to `Eigen::Vector3d`.
+ * Converts an OpenCV vector to `Eigen::Vector3d`.
  *
  * Args:
  *   mat: OpenCV 3-element vector.
@@ -206,7 +215,7 @@ Vector3 cvVector3(const cv::Mat& mat) {
 }
 
 /**
- * @brief Converts an OpenCV matrix to `Eigen::Matrix3d`.
+ * Converts an OpenCV matrix to `Eigen::Matrix3d`.
  *
  * Args:
  *   mat: OpenCV 3x3 matrix.
@@ -223,7 +232,7 @@ Matrix3 cvMatrix3(const cv::Mat& mat) {
 }
 
 /**
- * @brief Converts OpenCV distortion coefficients to `Eigen::VectorXd`.
+ * Converts OpenCV distortion coefficients to `Eigen::VectorXd`.
  *
  * Args:
  *   mat: OpenCV coefficient matrix.
@@ -240,7 +249,7 @@ VectorX cvVectorX(const cv::Mat& mat) {
 }
 
 /**
- * @brief Builds a homogeneous board-to-camera transform.
+ * Builds a homogeneous board-to-camera transform.
  *
  * Args:
  *   rotation: Board-to-camera rotation.
@@ -257,7 +266,7 @@ Matrix4 makeTransform(const Matrix3& rotation, const Vector3& translation) {
 }
 
 /**
- * @brief Computes the camera center in board coordinates.
+ * Computes the camera center in board coordinates.
  *
  * Args:
  *   rotation: Board-to-camera rotation.
@@ -271,7 +280,7 @@ Vector3 cameraCenterInBoardFrame(const Matrix3& rotation, const Vector3& transla
 }
 
 /**
- * @brief Converts OpenCV's GridBoard frame to Covoca's board frame.
+ * Converts OpenCV's GridBoard frame to Covoca's board frame.
  *
  * OpenCV's `GridBoard` has +Z pointing into the printed board. Covoca uses +Z
  * pointing out of the printed board, so this applies a 180 degree rotation
@@ -300,7 +309,7 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
     validateCalibrationConfig(config);
 
     const auto dictionaryType = dictionaryTypeFromName(config.board.dictionary);
-    if (!dictionaryType.has_value()) {
+    if (!dictionaryType) {
         throw std::runtime_error("unsupported board.dictionary: " + config.board.dictionary);
     }
 
@@ -309,7 +318,7 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
         throw std::runtime_error("no supported images found under: " + config.paths.images.string());
     }
 
-    const cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(dictionaryType.value());
+    const cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(*dictionaryType);
     const cv::aruco::GridBoard board(cv::Size(config.board.markers_x.value(), config.board.markers_y.value()),
                                      static_cast<float>(config.board.marker_length_m.value()),
                                      static_cast<float>(config.board.marker_separation_m.value()), dictionary);
@@ -329,9 +338,9 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
             continue;
         }
 
-        if (!imageSize.has_value()) {
+        if (!imageSize) {
             imageSize = image.size();
-        } else if (image.size() != imageSize.value()) {
+        } else if (image.size() != *imageSize) {
             spdlog::warn("Skipping image with different resolution: {}", imagePath.string());
             continue;
         }
@@ -367,10 +376,10 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
         throw std::runtime_error("need at least 3 accepted board views for calibration; got " +
                                  std::to_string(views.size()));
     }
-    if (!imageSize.has_value()) {
+    if (!imageSize) {
         throw std::runtime_error("no readable calibration images found");
     }
-    const cv::Size calibrationImageSize = imageSize.value();
+    const cv::Size calibrationImageSize = *imageSize;
 
     std::vector<std::vector<cv::Point3f>> objectPoints;
     std::vector<std::vector<cv::Point2f>> imagePoints;

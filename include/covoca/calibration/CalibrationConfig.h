@@ -57,7 +57,7 @@ struct CalibrationConfig {
 };
 
 /**
- * @brief Loads and validates calibration config.
+ * Loads and validates calibration config.
  *
  * Args:
  *   path: YAML or JSON config path.
@@ -68,7 +68,7 @@ struct CalibrationConfig {
 CalibrationConfig loadCalibrationConfig(const std::filesystem::path& path);
 
 /**
- * @brief Validates calibration config.
+ * Validates calibration config.
  *
  * Args:
  *   config: Configuration to validate.

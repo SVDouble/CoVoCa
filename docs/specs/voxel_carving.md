@@ -112,7 +112,6 @@ carving:
   sample_policy: center
   outside_image_policy: keep
   foreground_threshold: 128
-  min_required_views: 1
 
 export:
   format: ply

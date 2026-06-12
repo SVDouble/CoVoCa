@@ -19,7 +19,7 @@ namespace covoca::voxel_carving {
 class VoxelColorizer {
   public:
     /**
-     * @brief Builds a colorizer from color-reconstruction settings.
+     * Builds a colorizer from color-reconstruction settings.
      *
      * Args:
      *   config: Selects the reconstruction method and output filenames.
@@ -27,7 +27,7 @@ class VoxelColorizer {
     explicit VoxelColorizer(ColorConfig config);
 
     /**
-     * @brief Computes one color per voxel.
+     * Computes one color per voxel.
      *
      * Args:
      *   volume: Carved volume; only occupied voxels are colored.

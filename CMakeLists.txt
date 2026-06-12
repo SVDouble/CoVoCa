@@ -50,6 +50,9 @@ if(NOT TARGET reflectcpp::reflectcpp)
 endif()
 
 if(TARGET reflectcpp)
+    set_target_properties(reflectcpp PROPERTIES
+        CXX_CLANG_TIDY ""
+    )
     get_target_property(COVOCA_REFLECTCPP_INCLUDE_DIRS reflectcpp INTERFACE_INCLUDE_DIRECTORIES)
     if(COVOCA_REFLECTCPP_INCLUDE_DIRS)
         set_target_properties(reflectcpp PROPERTIES
@@ -57,6 +60,9 @@ if(TARGET reflectcpp)
         )
     endif()
 elseif(TARGET reflectcpp::reflectcpp)
+    set_target_properties(reflectcpp::reflectcpp PROPERTIES
+        CXX_CLANG_TIDY ""
+    )
     get_target_property(COVOCA_REFLECTCPP_INCLUDE_DIRS reflectcpp::reflectcpp INTERFACE_INCLUDE_DIRECTORIES)
     if(COVOCA_REFLECTCPP_INCLUDE_DIRS)
         set_target_properties(reflectcpp::reflectcpp PROPERTIES
@@ -66,6 +72,7 @@ elseif(TARGET reflectcpp::reflectcpp)
 endif()
 
 add_library(covoca_project_options INTERFACE)
+target_compile_features(covoca_project_options INTERFACE cxx_std_23)
 
 if(COVOCA_ENABLE_WARNINGS)
     target_compile_options(covoca_project_options INTERFACE

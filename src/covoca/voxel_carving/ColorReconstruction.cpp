@@ -9,39 +9,73 @@
 namespace covoca::voxel_carving {
 namespace {
 
+/**
+ * Rounds and clamps a floating-point RGB channel.
+ *
+ * Args:
+ *   value: Channel value before conversion to 8-bit storage.
+ *
+ * Returns:
+ *   `value` rounded to the nearest integer and clamped to `[0, 255]`.
+ */
 std::uint8_t clampChannel(double value) {
     return static_cast<std::uint8_t>(std::clamp(std::lround(value), 0L, 255L));
 }
 
-Eigen::Vector3d toVector3d(const Rgb& rgb) {
-    return {static_cast<double>(rgb[0]), static_cast<double>(rgb[1]), static_cast<double>(rgb[2])};
-}
-
-Rgb toRgb(const Eigen::Vector3d& rgb) {
-    return {clampChannel(rgb.x()), clampChannel(rgb.y()), clampChannel(rgb.z())};
-}
-
 } // namespace
 
+/**
+ * Averages RGB samples with equal weight.
+ *
+ * Args:
+ *   samples: Non-empty color observations for one voxel.
+ *
+ * Returns:
+ *   Mean RGB color.
+ */
 Rgb reconstructAverageColor(std::span<const ColorSample> samples) {
     Eigen::Vector3d sum = Eigen::Vector3d::Zero();
     for (const ColorSample& sample : samples) {
-        sum += toVector3d(sample.rgb);
+        Eigen::Vector3d rgb;
+        rgb << sample.rgb[0], sample.rgb[1], sample.rgb[2];
+        sum += rgb;
     }
-    return toRgb(sum / static_cast<double>(samples.size()));
+    const auto sampleCount = static_cast<double>(samples.size());
+    const Eigen::Vector3d rgb = sum / sampleCount;
+    return {clampChannel(rgb.x()), clampChannel(rgb.y()), clampChannel(rgb.z())};
 }
 
+/**
+ * Selects the color from the highest-weight sample.
+ *
+ * Args:
+ *   samples: Non-empty color observations for one voxel.
+ *
+ * Returns:
+ *   RGB color from the sample with the largest `ColorSample::weight`.
+ */
 Rgb reconstructBestViewColor(std::span<const ColorSample> samples) {
     const auto best = std::ranges::max_element(
         samples, [](const ColorSample& lhs, const ColorSample& rhs) { return lhs.weight < rhs.weight; });
     return best->rgb;
 }
 
+/**
+ * Averages RGB samples using their viewing-angle weights.
+ *
+ * Args:
+ *   samples: Non-empty color observations for one voxel.
+ *
+ * Returns:
+ *   Weighted mean RGB color, or the unweighted mean if all weights are zero.
+ */
 Rgb reconstructWeightedAverageColor(std::span<const ColorSample> samples) {
     double weightSum = 0.0;
     Eigen::Vector3d sum = Eigen::Vector3d::Zero();
     for (const ColorSample& sample : samples) {
-        sum += sample.weight * toVector3d(sample.rgb);
+        Eigen::Vector3d rgb;
+        rgb << sample.rgb[0], sample.rgb[1], sample.rgb[2];
+        sum += sample.weight * rgb;
         weightSum += sample.weight;
     }
 
@@ -51,28 +85,48 @@ Rgb reconstructWeightedAverageColor(std::span<const ColorSample> samples) {
         return reconstructAverageColor(samples);
     }
 
-    return toRgb(sum / weightSum);
+    const Eigen::Vector3d rgb = sum / weightSum;
+    return {clampChannel(rgb.x()), clampChannel(rgb.y()), clampChannel(rgb.z())};
 }
 
+/**
+ * Computes the per-channel median color.
+ *
+ * Args:
+ *   samples: Non-empty color observations for one voxel.
+ *
+ * Returns:
+ *   RGB color whose channels are the independent medians of the sample
+ *   channels.
+ */
 Rgb reconstructMedianColor(std::span<const ColorSample> samples) {
     Rgb result{};
     std::vector<int> channelValues(samples.size());
 
-    for (std::size_t channel = 0; channel < 3; ++channel) {
+    for (std::size_t channel = 0; channel < Rgb{}.size(); ++channel) {
         for (std::size_t i = 0; i < samples.size(); ++i) {
             channelValues[i] = samples[i].rgb[channel];
         }
         std::ranges::sort(channelValues);
 
         const std::size_t mid = channelValues.size() / 2;
-        const double median = (channelValues.size() % 2 == 0) ? (channelValues[mid - 1] + channelValues[mid]) / 2.0
-                                                              : static_cast<double>(channelValues[mid]);
+        const double median =
+            (channelValues.size() % 2 == 0) ? (channelValues[mid - 1] + channelValues[mid]) / 2.0 : channelValues[mid];
         result[channel] = clampChannel(median);
     }
 
     return result;
 }
 
+/**
+ * Maps a configured color method to its implementation function.
+ *
+ * Args:
+ *   method: Configured color reconstruction method.
+ *
+ * Returns:
+ *   Function pointer implementing `method`.
+ */
 ColorReconstructor colorReconstructorFor(ColorMethod method) {
     if (method.value() == ColorMethod::value_of<"best_view">()) {
         return reconstructBestViewColor;

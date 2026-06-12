@@ -23,7 +23,7 @@ struct ProjectionResult {
 class CalibratedView {
   public:
     /**
-     * @brief Builds a view from a camera model, frame pose, and mask.
+     * Builds a view from a camera model, frame pose, and mask.
      *
      * Args:
      *   camera: Intrinsics shared by all frames in the calibration result.
@@ -37,7 +37,7 @@ class CalibratedView {
                    std::optional<ColorImage> color = std::nullopt);
 
     /**
-     * @brief Projects a world-space point into this view's image.
+     * Projects a world-space point into this view's image.
      *
      * Transforms the point into camera space using the frame's
      * board-to-camera pose, then applies the pinhole projection (no
@@ -54,7 +54,7 @@ class CalibratedView {
     [[nodiscard]] ProjectionResult projectWorldPoint(const Eigen::Vector3d& pointWorld) const;
 
     /**
-     * @brief Checks the silhouette mask at a projected pixel.
+     * Checks the silhouette mask at a projected pixel.
      *
      * Args:
      *   pixel: Pixel coordinate, typically from `projectWorldPoint`.
@@ -68,7 +68,7 @@ class CalibratedView {
     [[nodiscard]] const std::filesystem::path& imagePath() const;
 
     /**
-     * @brief Samples this view's color image at a projected pixel.
+     * Samples this view's color image at a projected pixel.
      *
      * Args:
      *   pixel: Pixel coordinate, typically from `projectWorldPoint`.
@@ -81,7 +81,7 @@ class CalibratedView {
     [[nodiscard]] std::optional<Rgb> sampleColor(const Eigen::Vector2d& pixel) const;
 
     /**
-     * @brief Computes this camera's optical center in world (board)
+     * Computes this camera's optical center in world (board)
      * coordinates.
      *
      * Returns:

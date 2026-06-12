@@ -18,7 +18,7 @@ using Rgb = std::array<std::uint8_t, 3>;
 class VoxelColors {
   public:
     /**
-     * @brief Creates a black-initialized color buffer.
+     * Creates a black-initialized color buffer.
      *
      * Args:
      *   voxelCount: Number of voxels, matching `VoxelVolume::voxelCount()`.
@@ -29,7 +29,7 @@ class VoxelColors {
     static VoxelColors create(std::size_t voxelCount);
 
     /**
-     * @brief Sets the color of one voxel.
+     * Sets the color of one voxel.
      *
      * Args:
      *   flatIndex: Flat voxel index, as returned by `VoxelVolume::flatIndex`.
@@ -38,7 +38,7 @@ class VoxelColors {
     void set(std::size_t flatIndex, const Rgb& rgb);
 
     /**
-     * @brief Reads the color of one voxel.
+     * Reads the color of one voxel.
      *
      * Args:
      *   flatIndex: Flat voxel index, as returned by `VoxelVolume::flatIndex`.

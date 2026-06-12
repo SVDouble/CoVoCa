@@ -18,6 +18,19 @@ namespace fs = std::filesystem;
 
 namespace {
 
+/**
+ * Runs voxel carving from a config file.
+ *
+ * Loads calibration poses, silhouette masks, and optional color images, then
+ * carves the configured volume and writes the requested point-cloud and mesh
+ * exports.
+ *
+ * Args:
+ *   configPath: Path to a `gs.voxel_carving.config.v1` YAML or JSON config.
+ *
+ * Returns:
+ *   Process exit code. `0` means the run completed successfully.
+ */
 int run(const fs::path& configPath) {
     const auto config = covoca::voxel_carving::loadVoxelCarvingConfig(configPath);
     const auto calibration = covoca::calibration::loadCalibrationResult(config.paths.calibration_result);
@@ -65,6 +78,16 @@ int run(const fs::path& configPath) {
     return 0;
 }
 
+/**
+ * Parses and dispatches the `voxel_carve` CLI.
+ *
+ * Args:
+ *   argc: Argument count from `main`.
+ *   argv: Argument vector from `main`.
+ *
+ * Returns:
+ *   Process exit code from CLI parsing or the selected subcommand.
+ */
 int runCli(int argc, char** argv) {
     CLI::App app("Color voxel carving from calibrated multi-view silhouettes.");
     app.require_subcommand(1);
@@ -90,6 +113,16 @@ int runCli(int argc, char** argv) {
 
 } // namespace
 
+/**
+ * Application entrypoint.
+ *
+ * Args:
+ *   argc: Argument count.
+ *   argv: Argument vector.
+ *
+ * Returns:
+ *   Process exit code.
+ */
 int main(int argc, char** argv) {
     spdlog::set_pattern("%v");
 
