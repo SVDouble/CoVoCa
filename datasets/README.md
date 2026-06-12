@@ -21,3 +21,6 @@ Pipeline outputs (point clouds, meshes, dashboards) are written to
 - [`dino_sparse_ring/`](dino_sparse_ring/README.md): Middlebury
   "dinoSparseRing" multi-view dataset, for voxel carving with known
   ground-truth camera poses.
+- [`cat/`](cat/README.md): photos of a wooden cat figurine on the
+  `aruco_sample` board, for end-to-end calibration + voxel carving on
+  real captured data.

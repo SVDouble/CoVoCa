@@ -65,9 +65,8 @@ Rgb reconstructMedianColor(std::span<const ColorSample> samples) {
         std::ranges::sort(channelValues);
 
         const std::size_t mid = channelValues.size() / 2;
-        const double median = (channelValues.size() % 2 == 0)
-                                  ? (channelValues[mid - 1] + channelValues[mid]) / 2.0
-                                  : static_cast<double>(channelValues[mid]);
+        const double median = (channelValues.size() % 2 == 0) ? (channelValues[mid - 1] + channelValues[mid]) / 2.0
+                                                              : static_cast<double>(channelValues[mid]);
         result[channel] = clampChannel(median);
     }
 

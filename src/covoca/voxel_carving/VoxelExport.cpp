@@ -133,8 +133,7 @@ void writeOccupiedCubeMesh(const std::filesystem::path& path, const VoxelVolume&
                       "property uchar green\n"
                       "property uchar blue\n";
         }
-        stream << "element face "
-               << triangleCount
+        stream << "element face " << triangleCount
                << "\n"
                   "property list uchar int vertex_indices\n"
                   "end_header\n";

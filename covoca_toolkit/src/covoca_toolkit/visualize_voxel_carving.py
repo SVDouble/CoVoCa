@@ -1,20 +1,18 @@
-"""Render an interactive HTML dashboard summarizing a voxel-carving run.
-
-Shows a sample of input images and their silhouette masks alongside the
-carved point cloud as a rotatable 3D plot, so a run's result can be
-inspected in a browser without opening the PLY/OFF files in a 3D viewer.
-"""
+"""Render an interactive HTML dashboard summarizing a voxel-carving run."""
 
 from __future__ import annotations
 
 import argparse
+import html
+import json
+import shutil
 from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
+import plotly.io as pio
 import yaml
 from PIL import Image
-from plotly.subplots import make_subplots
 
 
 def load_yaml(path: Path) -> dict:
@@ -59,6 +57,76 @@ def load_ply_vertices(path: Path) -> tuple[np.ndarray, np.ndarray | None]:
         colors = np.array([[int(row[i]) for i in color_indices] for row in rows], dtype=np.uint8)
 
     return positions, colors
+
+
+def load_ply_mesh(path: Path) -> tuple[np.ndarray, np.ndarray | None, np.ndarray]:
+    """Read vertex positions, vertex colors, and triangle faces from an ASCII PLY.
+
+    Returns:
+        A `(positions, colors, triangles)` tuple. `positions` is `(N, 3)`
+        float64, `colors` is `(N, 3)` uint8 (or `None` if absent), and
+        `triangles` is `(M, 3)` int, indexing into `positions`.
+    """
+    with open(path) as f:
+        lines = f.readlines()
+
+    vertex_count = 0
+    face_count = 0
+    properties: list[str] = []
+    header_end = 0
+    element = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("element vertex"):
+            vertex_count = int(stripped.split()[-1])
+            element = "vertex"
+        elif stripped.startswith("element face"):
+            face_count = int(stripped.split()[-1])
+            element = "face"
+        elif stripped.startswith("element"):
+            element = None
+        elif stripped.startswith("property") and element == "vertex":
+            properties.append(stripped.split()[-1])
+        elif stripped == "end_header":
+            header_end = i + 1
+            break
+
+    vertex_rows = [lines[header_end + i].split() for i in range(vertex_count)]
+    positions = np.array([[float(value) for value in row[:3]] for row in vertex_rows])
+
+    colors = None
+    if {"red", "green", "blue"}.issubset(properties):
+        color_indices = [properties.index(name) for name in ("red", "green", "blue")]
+        colors = np.array([[int(row[i]) for i in color_indices] for row in vertex_rows], dtype=np.uint8)
+
+    face_start = header_end + vertex_count
+    face_rows = [lines[face_start + i].split() for i in range(face_count)]
+    triangles = np.array([[int(value) for value in row[1:4]] for row in face_rows], dtype=int)
+
+    return positions, colors, triangles
+
+
+def build_voxel_mesh_trace(vertices: np.ndarray, colors: np.ndarray | None, triangles: np.ndarray) -> go.Mesh3d:
+    """Builds a `go.Mesh3d` trace rendering the carved voxel cubes."""
+    mesh_kwargs: dict = {}
+    if colors is not None:
+        mesh_kwargs["vertexcolor"] = [f"rgb({r}, {g}, {b})" for r, g, b in colors]
+    else:
+        mesh_kwargs["intensity"] = vertices[:, 2]
+        mesh_kwargs["colorscale"] = "Viridis"
+        mesh_kwargs["showscale"] = False
+
+    return go.Mesh3d(
+        x=vertices[:, 0],
+        y=vertices[:, 1],
+        z=vertices[:, 2],
+        i=triangles[:, 0],
+        j=triangles[:, 1],
+        k=triangles[:, 2],
+        flatshading=True,
+        name="occupied voxels",
+        **mesh_kwargs,
+    )
 
 
 def project_points_to_pixels(
@@ -110,6 +178,8 @@ def render_point_cloud_view(
     """
     pixel_x, pixel_y, depth = project_points_to_pixels(points, frame, camera_matrix)
     visible = (depth > 0) & (pixel_x >= 0) & (pixel_x < width) & (pixel_y >= 0) & (pixel_y < height)
+    if not np.any(visible):
+        return np.zeros((height, width, 3), dtype=np.uint8), np.zeros((height, width), dtype=bool)
 
     order = np.argsort(-depth[visible])
     xs = pixel_x[visible][order].astype(int)
@@ -132,39 +202,96 @@ def render_point_cloud_view(
     return image, mask
 
 
-def color_difference_heatmap(rendered: np.ndarray, mask: np.ndarray, source: np.ndarray) -> np.ndarray:
-    """Computes a per-pixel mean absolute color difference.
+def color_error_score(rendered: np.ndarray, source: np.ndarray) -> np.ndarray:
+    """Computes a lighting-tolerant per-pixel appearance error.
 
-    Args:
-        rendered: `(H, W, 3)` uint8 image rendered from the point cloud.
-        mask: `(H, W)` bool, true where `rendered` has a painted pixel.
-        source: `(H, W, 3)` uint8 source photo, same resolution as `rendered`.
-
-    Returns:
-        `(H, W)` float array of `mean(|rendered - source|)` over channels,
-        `NaN` where `mask` is false (nothing to compare).
+    The score mixes chroma error with a smaller luma term. That makes color
+    mismatches, such as the green collar rendered as wood, stand out more than
+    ordinary shading differences.
     """
-    diff = np.abs(rendered.astype(np.int16) - source.astype(np.int16)).mean(axis=2)
-    return np.where(mask, diff, np.nan)
+    rendered_float = rendered.astype(np.float32) / 255.0
+    source_float = source.astype(np.float32) / 255.0
 
+    rendered_sum = rendered_float.sum(axis=2, keepdims=True)
+    source_sum = source_float.sum(axis=2, keepdims=True)
+    rendered_chroma = rendered_float / np.maximum(rendered_sum, 1e-6)
+    source_chroma = source_float / np.maximum(source_sum, 1e-6)
 
-def pick_sample_frames(frames: list[dict], count: int) -> list[dict]:
-    if count >= len(frames):
-        return frames
-    indices = np.linspace(0, len(frames) - 1, num=count, dtype=int)
-    return [frames[i] for i in indices]
-
-
-def load_thumbnail(path: Path, max_size: int = 320) -> np.ndarray:
-    """Load an image and shrink it for embedding in the dashboard."""
-    image = Image.open(path).convert("RGB")
-    image.thumbnail((max_size, max_size))
-    return np.array(image)
+    chroma_error = np.linalg.norm(rendered_chroma - source_chroma, axis=2) * 255.0
+    rendered_luma = (
+        0.2126 * rendered_float[:, :, 0] + 0.7152 * rendered_float[:, :, 1] + 0.0722 * rendered_float[:, :, 2]
+    )
+    source_luma = 0.2126 * source_float[:, :, 0] + 0.7152 * source_float[:, :, 1] + 0.0722 * source_float[:, :, 2]
+    luma_error = np.abs(rendered_luma - source_luma) * 255.0
+    return (0.8 * chroma_error) + (0.2 * luma_error)
 
 
 def load_image(path: Path) -> np.ndarray:
     """Load an image at full resolution as `(H, W, 3)` uint8 RGB."""
     return np.array(Image.open(path).convert("RGB"))
+
+
+def load_mask(path: Path) -> np.ndarray:
+    """Load a binary mask as `(H, W)` bool."""
+    return np.array(Image.open(path).convert("L")) >= 128
+
+
+def colorize_error_score(score: np.ndarray, mask: np.ndarray, vmin: float = 15.0, vmax: float = 45.0) -> np.ndarray:
+    """Render a scalar error map as `(H, W, 3)` uint8."""
+    intensity = np.clip((score - vmin) / (vmax - vmin), 0.0, 1.0)
+    red = np.clip(3 * intensity, 0.0, 1.0)
+    green = np.clip(3 * intensity - 1.0, 0.0, 1.0)
+    blue = np.clip(3 * intensity - 2.0, 0.0, 1.0)
+    image = (np.stack([red, green, blue], axis=-1) * 255).astype(np.uint8)
+    image[~mask] = 0
+    return image
+
+
+def silhouette_error_image(source_mask: np.ndarray, render_mask: np.ndarray) -> np.ndarray:
+    """Render missing source foreground in magenta and extra render coverage in cyan."""
+    image = np.zeros((*source_mask.shape, 3), dtype=np.uint8)
+    image[source_mask & render_mask] = (60, 60, 60)
+    image[source_mask & ~render_mask] = (255, 0, 180)
+    image[render_mask & ~source_mask] = (0, 190, 255)
+    return image
+
+
+def appearance_error_image(
+    rendered: np.ndarray, render_mask: np.ndarray, source: np.ndarray, source_mask: np.ndarray
+) -> np.ndarray:
+    """Render color error on overlap and explicit missing/extra silhouette regions.
+
+    Magenta means source foreground is missing from the render; cyan means the
+    render has coverage outside the source mask. On overlapping foreground, a
+    hot colormap shows chroma/luma mismatch.
+    """
+    overlap = source_mask & render_mask
+    image = colorize_error_score(color_error_score(rendered, source), overlap)
+    image[source_mask & ~render_mask] = (255, 0, 180)
+    image[render_mask & ~source_mask] = (0, 190, 255)
+    return image
+
+
+def save_image_asset(image: np.ndarray, assets_dir: Path, name: str, suffix: str = "jpg", quality: int = 85) -> str:
+    """Save an image sidecar and return its HTML-relative path.
+
+    Args:
+        image: RGB image as `(H, W, 3)` uint8.
+        assets_dir: Dashboard asset directory next to the HTML file.
+        name: File stem to write.
+        suffix: Output extension, usually `"jpg"` or `"png"`.
+        quality: JPEG quality.
+
+    Returns:
+        Relative path from the dashboard HTML to the saved JPEG.
+    """
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    path = assets_dir / f"{name}.{suffix}"
+    if suffix == "jpg":
+        Image.fromarray(image).save(path, quality=quality)
+    else:
+        Image.fromarray(image).save(path)
+    return f"{assets_dir.name}/{path.name}"
 
 
 def build_camera_traces(frames: list[dict], axis_length: float) -> tuple[go.Scatter3d, go.Scatter3d]:
@@ -221,7 +348,207 @@ def build_camera_traces(frames: list[dict], axis_length: float) -> tuple[go.Scat
     return centers_trace, directions_trace
 
 
-def build_dashboard(config_path: Path, output_path: Path, num_views: int) -> None:
+def image_figure(src: str, caption: str) -> str:
+    """Render one sidecar image reference as HTML."""
+    return (
+        "<figure>"
+        f'<img src="{html.escape(src)}" loading="lazy" alt="{html.escape(caption)}">'
+        f"<figcaption>{html.escape(caption)}</figcaption>"
+        "</figure>"
+    )
+
+
+def write_dashboard_html(
+    output_path: Path,
+    title: str,
+    plot_html: str,
+    comparisons: list[dict[str, str]],
+) -> None:
+    """Write the dashboard shell.
+
+    Images are normal `<img>` references to sidecar files. This keeps the HTML
+    small and avoids Plotly image-trace loading issues when opening the
+    dashboard from disk or serving it over HTTP.
+    """
+    comparison_json = json.dumps(comparisons)
+    comparison_section = ""
+    if comparisons:
+        first = comparisons[0]
+        options = "\n".join(
+            f'<option value="{i}">{html.escape(item["label"])}</option>' for i, item in enumerate(comparisons)
+        )
+        comparison_section = f"""
+    <section>
+      <div class="section-header">
+        <h2>View Comparison</h2>
+        <div class="gallery-controls">
+          <button id="previous-comparison" type="button">Previous</button>
+          <select id="comparison-select">{options}</select>
+          <button id="next-comparison" type="button">Next</button>
+        </div>
+      </div>
+      <div class="comparison-grid">
+        {image_figure(first["source"], "source image")}
+        {image_figure(first["mask"], "mask")}
+        {image_figure(first["rendered"], "rendered from same view")}
+        {image_figure(first["silhouette_error"], "silhouette error")}
+        {image_figure(first["appearance_error"], "missing + color error")}
+      </div>
+    </section>
+    <script>
+      const comparisons = {comparison_json};
+      const select = document.getElementById("comparison-select");
+      const previous = document.getElementById("previous-comparison");
+      const next = document.getElementById("next-comparison");
+      const figures = document.querySelectorAll(".comparison-grid figure");
+      let currentComparison = 0;
+      function setComparison(index) {{
+        currentComparison = (index + comparisons.length) % comparisons.length;
+        select.value = String(currentComparison);
+        const item = comparisons[currentComparison];
+        figures[0].querySelector("img").src = item.source;
+        figures[1].querySelector("img").src = item.mask;
+        figures[2].querySelector("img").src = item.rendered;
+        figures[3].querySelector("img").src = item.silhouette_error;
+        figures[4].querySelector("img").src = item.appearance_error;
+      }}
+      select.addEventListener("change", (event) => setComparison(Number(event.target.value)));
+      previous.addEventListener("click", () => setComparison(currentComparison - 1));
+      next.addEventListener("click", () => setComparison(currentComparison + 1));
+    </script>
+"""
+
+    output_path.write_text(
+        f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(title)}</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #182026;
+      background: #f6f7f8;
+    }}
+    main {{
+      width: min(1440px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 36px;
+    }}
+    h1, h2, p {{
+      margin: 0;
+    }}
+    h1 {{
+      font-size: 28px;
+      line-height: 1.2;
+      margin-bottom: 20px;
+    }}
+    h2 {{
+      font-size: 18px;
+      line-height: 1.3;
+    }}
+    section {{
+      margin-top: 20px;
+    }}
+    .section-header {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }}
+    select {{
+      min-width: 240px;
+      max-width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #b8c0c8;
+      border-radius: 6px;
+      background: white;
+      color: inherit;
+    }}
+    button {{
+      padding: 6px 10px;
+      border: 1px solid #b8c0c8;
+      border-radius: 6px;
+      background: white;
+      color: inherit;
+      cursor: pointer;
+    }}
+    button:hover {{
+      background: #eef2f5;
+    }}
+    .gallery-controls {{
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: 100%;
+    }}
+    .comparison-grid {{
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }}
+    figure {{
+      margin: 0;
+      min-width: 0;
+    }}
+    img {{
+      display: block;
+      width: 100%;
+      max-height: 520px;
+      object-fit: contain;
+      background: #0b0f12;
+      border: 1px solid #d8dee4;
+      border-radius: 6px;
+    }}
+    figcaption {{
+      margin-top: 4px;
+      color: #53606b;
+      font-size: 12px;
+    }}
+    .plot-panel {{
+      min-height: 720px;
+      border: 1px solid #d8dee4;
+      border-radius: 8px;
+      background: white;
+      overflow: hidden;
+    }}
+    @media (max-width: 800px) {{
+      main {{
+        width: min(100% - 20px, 1440px);
+        padding-top: 16px;
+      }}
+      .comparison-grid {{
+        grid-template-columns: 1fr;
+      }}
+      .section-header {{
+        align-items: flex-start;
+        flex-direction: column;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{html.escape(title)}</h1>
+    <section>
+      <h2>Occupied Voxels + Cameras</h2>
+      <div class="plot-panel">{plot_html}</div>
+    </section>
+    {comparison_section}
+  </main>
+</body>
+</html>
+""",
+        encoding="utf-8",
+    )
+
+
+def build_dashboard(config_path: Path, output_path: Path) -> None:
     project_root = config_path.resolve().parents[2]
     config = load_yaml(config_path)
     calibration = load_yaml(project_root / config["paths"]["calibration_result"])
@@ -232,145 +559,86 @@ def build_dashboard(config_path: Path, output_path: Path, num_views: int) -> Non
 
     frames = []
     for frame in calibration["frames"]:
-        frames.append({
-            **frame,
-            "path": frame["image"],
-            "mask": str(masks_dir / Path(frame["image"]).with_suffix(".png").name),
-        })
-
-    sample_frames = pick_sample_frames(frames, num_views)
+        frames.append(
+            {
+                **frame,
+                "path": frame["image"],
+                "mask": str(masks_dir / Path(frame["image"]).with_suffix(".png").name),
+            }
+        )
 
     output_dir = project_root / config["paths"]["output_dir"]
     color_config = config.get("color")
     if color_config:
         points, colors = load_ply_vertices(output_dir / color_config["occupied_points_file"])
+        mesh_vertices, mesh_colors, mesh_faces = load_ply_mesh(output_dir / color_config["occupied_mesh_file"])
     else:
         points, colors = load_ply_vertices(output_dir / config["export"]["occupied_points_file"])
-
-    grid_cols = max(num_views, 3)
-    fig = make_subplots(
-        rows=4,
-        cols=grid_cols,
-        specs=[
-            [{"type": "xy"}] * grid_cols,
-            [{"type": "xy"}] * grid_cols,
-            [{"type": "scene", "colspan": grid_cols}] + [None] * (grid_cols - 1),
-            [{"type": "xy"}] * 3 + [None] * (grid_cols - 3),
-        ],
-        row_heights=[0.2, 0.2, 0.35, 0.25],
-        subplot_titles=[Path(frame["path"]).name for frame in sample_frames]
-        + [""] * (grid_cols - num_views)
-        + [""] * grid_cols
-        + ["occupied voxels + cameras"]
-        + ["source image", "rendered from same view", "color difference"],
-        vertical_spacing=0.06,
-    )
-
-    for col, frame in enumerate(sample_frames):
-        image = load_thumbnail(project_root / frame["path"])
-        fig.add_trace(go.Image(z=image), row=1, col=col + 1)
-
-        mask = load_thumbnail(project_root / frame["mask"])
-        fig.add_trace(go.Image(z=mask), row=2, col=col + 1)
-
-    for row in (1, 2):
-        for col in range(1, num_views + 1):
-            fig.update_xaxes(visible=False, row=row, col=col)
-            fig.update_yaxes(visible=False, row=row, col=col)
-
-    if colors is not None:
-        marker = {
-            "size": 1.5,
-            "color": [f"rgb({r}, {g}, {b})" for r, g, b in colors],
-        }
-    else:
-        marker = {"size": 1.5, "color": points[:, 2], "colorscale": "Viridis"}
-
-    fig.add_trace(
-        go.Scatter3d(
-            x=points[:, 0],
-            y=points[:, 1],
-            z=points[:, 2],
-            mode="markers",
-            marker=marker,
-            name="occupied voxels",
-        ),
-        row=3,
-        col=1,
-    )
-
-    volume_extent = np.array(config["volume"]["max_m"]) - np.array(config["volume"]["min_m"])
-    centers_trace, directions_trace = build_camera_traces(frames, axis_length=0.5 * float(np.mean(volume_extent)))
-    fig.add_trace(centers_trace, row=3, col=1)
-    fig.add_trace(directions_trace, row=3, col=1)
-
-    fig.update_scenes(aspectmode="data")
-
-    # Per-view comparison: render the colored point cloud from each frame's
-    # camera and compare against that frame's source image. Covers every
-    # frame (not just the thumbnail samples), selectable via the dropdown.
-    fixed_trace_count = len(fig.data)
-    if colors is not None:
-        for frame in frames:
-            source = load_image(project_root / frame["path"])
-            rendered, mask = render_point_cloud_view(
-                points, colors, frame, camera_matrix, image_width, image_height, config["volume"]["voxel_size_m"]
-            )
-            diff = color_difference_heatmap(rendered, mask, source)
-
-            fig.add_trace(go.Image(z=source, visible=False), row=4, col=1)
-            fig.add_trace(go.Image(z=rendered, visible=False), row=4, col=2)
-            fig.add_trace(
-                go.Heatmap(z=np.flipud(diff), colorscale="Hot", showscale=False, visible=False), row=4, col=3
-            )
-
-        for row, col in ((4, 1), (4, 2), (4, 3)):
-            fig.update_xaxes(visible=False, row=row, col=col)
-            fig.update_yaxes(visible=False, row=row, col=col)
-        fig.update_yaxes(scaleanchor="x", scaleratio=1, row=4, col=3)
-
-        # Make the first frame's comparison traces visible by default.
-        for trace_index in range(fixed_trace_count, fixed_trace_count + 3):
-            fig.data[trace_index].visible = True
-
-        buttons = []
-        for view_index, frame in enumerate(frames):
-            visible = [True] * fixed_trace_count
-            for other_index in range(len(frames)):
-                visible += [other_index == view_index] * 3
-            buttons.append({
-                "label": Path(frame["path"]).name,
-                "method": "update",
-                "args": [{"visible": visible}],
-            })
-
-        fig.update_layout(
-            updatemenus=[{
-                "buttons": buttons,
-                "direction": "down",
-                "x": 0.0,
-                "y": 0.18,
-                "xanchor": "left",
-                "yanchor": "bottom",
-            }]
-        )
-
-    fig.update_layout(
-        title=f"{config['name']} — {len(points)} occupied voxels",
-        showlegend=False,
-        height=420 * 4,
-    )
+        mesh_vertices, mesh_colors, mesh_faces = load_ply_mesh(output_dir / config["export"]["occupied_mesh_file"])
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.write_html(output_path, include_plotlyjs="cdn")
+    assets_dir = output_path.parent / "dashboard_assets"
+    if assets_dir.exists():
+        shutil.rmtree(assets_dir)
+
+    fig = go.Figure()
+    fig.add_trace(build_voxel_mesh_trace(mesh_vertices, mesh_colors, mesh_faces))
+    volume_extent = np.array(config["volume"]["max_m"]) - np.array(config["volume"]["min_m"])
+    centers_trace, directions_trace = build_camera_traces(frames, axis_length=0.5 * float(np.mean(volume_extent)))
+    fig.add_trace(centers_trace)
+    fig.add_trace(directions_trace)
+    fig.update_scenes(aspectmode="data")
+    fig.update_layout(
+        showlegend=False,
+        height=720,
+        margin={"l": 0, "r": 0, "t": 8, "b": 0},
+    )
+    plot_html = pio.to_html(fig, include_plotlyjs="cdn", full_html=False, config={"responsive": True})
+
+    comparisons: list[dict[str, str]] = []
+    if colors is not None:
+        for frame in frames:
+            stem = Path(frame["path"]).stem
+            source = load_image(project_root / frame["path"])
+            source_mask = load_mask(project_root / frame["mask"])
+            source_mask_image = np.repeat(np.where(source_mask[:, :, np.newaxis], 255, 0), 3, axis=2).astype(np.uint8)
+            rendered, render_mask = render_point_cloud_view(
+                points, colors, frame, camera_matrix, image_width, image_height, config["volume"]["voxel_size_m"]
+            )
+            silhouette_error = silhouette_error_image(source_mask, render_mask)
+            appearance_error = appearance_error_image(rendered, render_mask, source, source_mask)
+
+            comparisons.append(
+                {
+                    "label": Path(frame["path"]).name,
+                    "source": save_image_asset(source, assets_dir, f"source_{stem}"),
+                    "mask": save_image_asset(source_mask_image, assets_dir, f"comparison_mask_{stem}", suffix="png"),
+                    "rendered": save_image_asset(rendered, assets_dir, f"rendered_{stem}"),
+                    "silhouette_error": save_image_asset(
+                        silhouette_error, assets_dir, f"silhouette_error_{stem}", suffix="png"
+                    ),
+                    "appearance_error": save_image_asset(
+                        appearance_error, assets_dir, f"appearance_error_{stem}", suffix="png"
+                    ),
+                }
+            )
+
+    title = f"{config['name']} - {len(points)} occupied voxels"
+    write_dashboard_html(
+        output_path=output_path,
+        title=title,
+        plot_html=plot_html,
+        comparisons=comparisons,
+    )
     print(f"Wrote {output_path}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Render an interactive HTML dashboard for a voxel-carving run.")
     parser.add_argument("--config", type=Path, required=True, help="Voxel carving config YAML")
-    parser.add_argument("--output", type=Path, default=None, help="Output HTML path (default: <output_dir>/dashboard.html)")
-    parser.add_argument("--num-views", type=int, default=4, help="Number of sample images to show (default: 4)")
+    parser.add_argument(
+        "--output", type=Path, default=None, help="Output HTML path (default: <output_dir>/dashboard.html)"
+    )
     return parser.parse_args(argv)
 
 
@@ -379,7 +647,7 @@ def main(argv: list[str] | None = None) -> int:
     config = load_yaml(args.config)
     project_root = args.config.resolve().parents[2]
     output_path = args.output or (project_root / config["paths"]["output_dir"] / "dashboard.html")
-    build_dashboard(args.config, output_path, args.num_views)
+    build_dashboard(args.config, output_path)
     return 0
 
 

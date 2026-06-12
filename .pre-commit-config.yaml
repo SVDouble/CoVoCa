@@ -15,7 +15,7 @@ repos:
 
       - id: mdformat
         name: mdformat
-        entry: uv run --project covoca_toolkit --group dev --python 3.14 mdformat
+        entry: uv run --project covoca_toolkit --group dev --python 3.14 python -m mdformat
         language: system
         types:
           - markdown

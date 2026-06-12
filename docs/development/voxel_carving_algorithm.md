@@ -84,8 +84,7 @@ the rest become background (0).
 - Voxels are stored as a flat `uint8_t` array, indexed by
   `flatIndex = (z * ny + y) * nx + x`.
 - `center(index)` and `corners(index)` map a grid coordinate `(x, y, z)` to
-  world-space points (in meters): `center = min_m + (index + 0.5) *
-  voxel_size_m`; the 8 corners are `min_m + (index + {0,1}) * voxel_size_m`.
+  world-space points (in meters): `center = min_m + (index + 0.5) * voxel_size_m`; the 8 corners are `min_m + (index + {0,1}) * voxel_size_m`.
 
 ### 3.2 Project a 3D point into a view
 
@@ -94,15 +93,14 @@ maps to in one camera, given the camera's extrinsics `(R, t)` and intrinsics
 `(fx, fy, cx, cy)`:
 
 1. **World to camera space**: `P_camera = R * P_world + t`.
-2. **Front-of-camera check**: if `P_camera.z <= 0`, the point is behind the
+1. **Front-of-camera check**: if `P_camera.z <= 0`, the point is behind the
    camera; return `inFront = false` and stop.
-3. **Pinhole projection**:
+1. **Pinhole projection**:
    ```
    pixel_x = fx * (P_camera.x / P_camera.z) + cx
    pixel_y = fy * (P_camera.y / P_camera.z) + cy
    ```
-4. **Image-bounds check**: `insideImage = (0 <= pixel_x < width) and
-   (0 <= pixel_y < height)`.
+1. **Image-bounds check**: `insideImage = (0 <= pixel_x < width) and (0 <= pixel_y < height)`.
 
 Output: `ProjectionResult{inFront, insideImage, pixel, depthMeters}`.
 
@@ -186,11 +184,11 @@ For each occupied voxel:
 
 1. Project the voxel's `center(index)` into every view
    (`CalibratedView::projectWorldPoint`).
-2. Keep only views where the projection is in front of the camera, inside
+1. Keep only views where the projection is in front of the camera, inside
    the image, and `isForeground(pixel)` is true.
-3. Sample that view's color image at the projected pixel. Skip views with no
+1. Sample that view's color image at the projected pixel. Skip views with no
    loaded color image or whose pixel falls outside it.
-4. Compute a per-view weight `max(0, normal . view_direction)`, where
+1. Compute a per-view weight `max(0, normal . view_direction)`, where
    `view_direction` points from the voxel center toward
    `CalibratedView::cameraOrigin()`, and `normal` is the voxel's estimated
    outward surface normal (§4.3). If no normal could be estimated, every
@@ -239,8 +237,7 @@ function pointer reused for every voxel.
 
 ### 4.5 Colored export
 
-`VoxelColorizer::run` returns a `VoxelColors` buffer (one `(red, green,
-blue)` triple per voxel, flat-indexed like `VoxelVolume`). `VoxelExport`'s
+`VoxelColorizer::run` returns a `VoxelColors` buffer (one `(red, green, blue)` triple per voxel, flat-indexed like `VoxelVolume`). `VoxelExport`'s
 `writeOccupiedPoints`/`writeOccupiedCubeMesh` take an optional
 `const VoxelColors*`:
 

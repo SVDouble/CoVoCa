@@ -20,7 +20,9 @@ Do not copy implementation code from reference projects.
 ## Coordinate Convention
 
 - Calibration writes `board_to_camera`: `X_camera = R * X_board + t`.
-- The ArUco board frame is the first world frame.
+- The ArUco board frame is the first world frame: `X`/`Y` lie in the board
+  plane, and `+Z` points out of the printed board toward the camera-facing
+  side (calibration flips OpenCV's raw `GridBoard` `Y`/`Z` axes to get this).
 - Voxel carving stores voxels in world coordinates and projects them into each
   camera.
 

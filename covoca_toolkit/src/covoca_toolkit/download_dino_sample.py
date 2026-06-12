@@ -192,7 +192,9 @@ def run(args: argparse.Namespace) -> int:
             download_file(f"{raw_root}/{filename}", args.output / filename, args.force)
 
         good_images = {
-            line.strip() for line in (args.output / "dinoSR_good_silhouette_images.txt").read_text().splitlines() if line.strip()
+            line.strip()
+            for line in (args.output / "dinoSR_good_silhouette_images.txt").read_text().splitlines()
+            if line.strip()
         }
 
         masks_dir.mkdir(parents=True, exist_ok=True)

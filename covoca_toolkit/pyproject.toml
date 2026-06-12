@@ -17,9 +17,16 @@ dependencies = [
 [project.scripts]
 download-aruco-sample = "covoca_toolkit.download_aruco_sample:main"
 download-dino-sample = "covoca_toolkit.download_dino_sample:main"
+generate-cat-masks = "covoca_toolkit.generate_cat_masks:main"
 visualize-voxel-carving = "covoca_toolkit.visualize_voxel_carving:main"
 
 [project.optional-dependencies]
+masks = [
+    "opencv-python>=4.10",
+    "torch>=2.12",
+    "torchvision>=0.27",
+    "ultralytics>=8.4",
+]
 plot = [
     "plotly>=6.0",
 ]

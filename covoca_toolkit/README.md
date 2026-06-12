@@ -19,3 +19,10 @@ Optional Plotly dependencies are declared as the `plot` extra:
 ```bash
 uv run --project covoca_toolkit --extra plot --python 3.14 python
 ```
+
+Segmentation-mask dependencies are declared as the `masks` extra. This path
+uses PyTorch with CUDA through `ultralytics`:
+
+```bash
+uv run --project covoca_toolkit --extra masks --python 3.14 generate-cat-masks
+```

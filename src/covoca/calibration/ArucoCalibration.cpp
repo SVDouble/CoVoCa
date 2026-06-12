@@ -270,6 +270,23 @@ Vector3 cameraCenterInBoardFrame(const Matrix3& rotation, const Vector3& transla
     return -rotation.transpose() * translation;
 }
 
+/**
+ * @brief Converts OpenCV's GridBoard frame to Covoca's board frame.
+ *
+ * OpenCV's `GridBoard` has +Z pointing into the printed board. Covoca uses +Z
+ * pointing out of the printed board, so this applies a 180 degree rotation
+ * around board X. Translation is unchanged because the board origin is fixed.
+ *
+ * Args:
+ *   rotation: Board-to-camera rotation for OpenCV's board frame.
+ *
+ * Returns:
+ *   Board-to-camera rotation for the flipped board frame.
+ */
+Matrix3 flipBoardYzAxes(const Matrix3& rotation) {
+    return rotation * Vector3(1.0, -1.0, -1.0).asDiagonal();
+}
+
 struct DetectedView {
     fs::path imagePath;
     std::vector<int> markerIds;
@@ -377,8 +394,13 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
     for (std::size_t i = 0; i < views.size(); ++i) {
         cv::Mat rotation;
         cv::Rodrigues(rvecs[i], rotation);
-        const Matrix3 rotationEigen = cvMatrix3(rotation);
+        const Matrix3 rotationEigen = flipBoardYzAxes(cvMatrix3(rotation));
         const Vector3 translationEigen = cvVector3(tvecs[i]);
+
+        cv::Mat rotationCv;
+        cv::eigen2cv(rotationEigen, rotationCv);
+        cv::Mat rvec;
+        cv::Rodrigues(rotationCv, rvec);
 
         frames.push_back({
             .image = views[i].imagePath,
@@ -387,7 +409,7 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
             .mean_reprojection_error_px = meanReprojectionError(views[i].objectPoints, views[i].imagePoints, rvecs[i],
                                                                 tvecs[i], cameraMatrix, distCoeffs),
             .detected_ids = views[i].markerIds,
-            .rvec_board_to_camera = cvVector3(rvecs[i]),
+            .rvec_board_to_camera = cvVector3(rvec),
             .tvec_board_to_camera_m = translationEigen,
             .rotation_board_to_camera = rotationEigen,
             .transform_board_to_camera = makeTransform(rotationEigen, translationEigen),

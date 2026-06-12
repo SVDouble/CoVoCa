@@ -59,9 +59,12 @@ Draw coordinate axes:
 ./build/debug/aruco_calibrate visualize --result local/datasets/aruco_sample/calibration_result.yaml --output-dir local/datasets/aruco_sample/calibration_axes --axis-length-m 0.05625
 ```
 
-OpenCV GridBoard coordinates lie in the board plane. Board `+Z` is the board
-normal. Camera `+Z` points forward along the optical axis. Results store
-`board_to_camera`, mapping board/world points into camera coordinates.
+Board `X`/`Y` lie in the board plane; board `+Z` is the board normal, pointing
+out of the printed board toward the camera-facing side (OpenCV's raw
+`GridBoard` frame has `+Z` pointing into the board, so calibration flips its
+`Y` and `Z` axes to get this convention). Camera `+Z` points forward along the
+optical axis. Results store `board_to_camera`, mapping board/world points into
+camera coordinates.
 
 For your own capture, copy `datasets/aruco_sample/calibration.yaml` and edit
 paths plus board geometry.
@@ -135,4 +138,5 @@ under `datasets/<name>/`; downloaded files and pipeline outputs go to
 - spdlog: C++ logging.
 - CLI11: command-line parsing.
 - reflect-cpp + yaml-cpp: typed YAML/JSON config and result IO.
+- PyTorch + Ultralytics: optional CUDA segmentation for sample masks.
 - CUDA/OpenGL: optional later acceleration and visualization.

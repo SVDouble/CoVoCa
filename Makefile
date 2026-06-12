@@ -90,10 +90,10 @@ python-lint:
 python-check: python-format-check python-lint
 
 pre-commit:
-	uv run --project $(PYTHON_TOOLS_DIR) --group dev --python 3.14 pre-commit run --all-files
+	uv run --project $(PYTHON_TOOLS_DIR) --group dev --python 3.14 python -m pre_commit run --all-files
 
 pre-commit-install:
-	uv run --project $(PYTHON_TOOLS_DIR) --group dev --python 3.14 pre-commit install
+	uv run --project $(PYTHON_TOOLS_DIR) --group dev --python 3.14 python -m pre_commit install
 
 python-tools-build:
 	uv build --project $(PYTHON_TOOLS_DIR)
