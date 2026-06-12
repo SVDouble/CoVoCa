@@ -3,7 +3,18 @@
 #include <filesystem>
 #include <string>
 
+#include <rfl/Literal.hpp>
+#include <rfl/Validator.hpp>
+#include <rfl/comparisons.hpp>
+
 namespace gs::calibration {
+
+using CalibrationSchema = rfl::Literal<"gs.calibration.config.v1">;
+using BoardType = rfl::Literal<"aruco_grid">;
+using CornerRefinement = rfl::Literal<"none", "subpix", "contour">;
+using PositiveInt = rfl::Validator<int, rfl::ExclusiveMinimum<0>>;
+using PositiveDouble = rfl::Validator<double, rfl::ExclusiveMinimum<0>>;
+using NonNegativeDouble = rfl::Validator<double, rfl::Minimum<0>>;
 
 /// Filesystem inputs and outputs for one calibration run.
 struct CalibrationPaths {
@@ -13,31 +24,31 @@ struct CalibrationPaths {
 
 /// ArUco GridBoard geometry.
 struct ArucoBoardConfig {
-    std::string type;
+    BoardType type;
     std::string dictionary;
-    int markersX = 0;
-    int markersY = 0;
-    double markerLengthMeters = 0.0;
-    double markerSeparationMeters = 0.0;
+    PositiveInt markers_x;
+    PositiveInt markers_y;
+    PositiveDouble marker_length_m;
+    NonNegativeDouble marker_separation_m;
 };
 
 /// Marker detector settings.
 struct DetectorConfig {
-    int minMarkersPerFrame = 0;
-    bool refineDetections = false;
-    std::string cornerRefinement;
+    PositiveInt min_markers_per_frame;
+    bool refine_detections = false;
+    CornerRefinement corner_refinement;
 };
 
 /// Lens calibration flags.
 struct CalibrationFlagsConfig {
-    bool fixK4 = false;
-    bool fixK5 = false;
-    bool fixK6 = false;
+    bool fix_k4 = false;
+    bool fix_k5 = false;
+    bool fix_k6 = false;
 };
 
 /// Full calibration configuration.
 struct CalibrationConfig {
-    std::string schema;
+    CalibrationSchema schema;
     std::string name;
     CalibrationPaths paths;
     ArucoBoardConfig board;

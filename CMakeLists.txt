@@ -135,9 +135,9 @@ target_include_directories(gsplat_calibration PUBLIC
 target_link_libraries(gsplat_calibration
     PUBLIC
         Eigen3::Eigen
+        gsplat_config
     PRIVATE
         ${OpenCV_LIBS}
-        gsplat_config
         gsplat_project_options
         spdlog::spdlog
 )

@@ -7,6 +7,7 @@
 #include <Eigen/Dense>
 
 #include "gsplat/calibration/CalibrationConfig.h"
+#include "gsplat/config/EigenReflectors.h"
 
 namespace gs::calibration {
 
@@ -15,42 +16,49 @@ using VectorX = Eigen::VectorXd;
 using Matrix3 = Eigen::Matrix3d;
 using Matrix4 = Eigen::Matrix4d;
 
+using ResultSchema = rfl::Literal<"gs.calibration.result.v1">;
+
 /// Image dimensions.
 struct ImageSize {
-    int width = 0;
-    int height = 0;
+    PositiveInt width;
+    PositiveInt height;
 };
 
 /// Pinhole camera model.
 struct CameraModel {
-    Matrix3 matrix = Matrix3::Zero();
-    VectorX distortionCoefficients;
+    Matrix3 matrix;
+    VectorX distortion_coefficients;
+};
+
+/// Source images and frame counts for a calibration run.
+struct CalibrationSource {
+    std::filesystem::path config;
+    std::filesystem::path image_path;
+    PositiveInt input_image_count;
+    PositiveInt accepted_frame_count;
 };
 
 /// Per-frame pose and calibration diagnostics.
 struct FrameCalibrationResult {
     std::filesystem::path image;
-    int detectedMarkerCount = 0;
-    int matchedCornerCount = 0;
-    double meanReprojectionErrorPixels = 0.0;
-    std::vector<int> detectedIds;
-    Vector3 rvecBoardToCamera = Vector3::Zero();
-    Vector3 tvecBoardToCameraMeters = Vector3::Zero();
-    Matrix3 rotationBoardToCamera = Matrix3::Zero();
-    Matrix4 transformBoardToCamera = Matrix4::Identity();
-    Vector3 cameraCenterBoardMeters = Vector3::Zero();
+    PositiveInt detected_marker_count;
+    PositiveInt matched_corner_count;
+    NonNegativeDouble mean_reprojection_error_px;
+    std::vector<int> detected_ids;
+    Vector3 rvec_board_to_camera;
+    Vector3 tvec_board_to_camera_m;
+    Matrix3 rotation_board_to_camera;
+    Matrix4 transform_board_to_camera;
+    Vector3 camera_center_board_m;
 };
 
 /// Calibration output schema.
 struct CalibrationResult {
-    std::string schema;
+    ResultSchema schema;
     std::string name;
-    std::filesystem::path sourceConfig;
-    std::filesystem::path imagePath;
-    int inputImageCount = 0;
-    int acceptedFrameCount = 0;
-    ImageSize imageSize;
-    double rmsReprojectionErrorPixels = 0.0;
+    CalibrationSource source;
+    ImageSize image_size;
+    NonNegativeDouble rms_reprojection_error_px;
     ArucoBoardConfig board;
     CameraModel camera;
     std::vector<FrameCalibrationResult> frames;

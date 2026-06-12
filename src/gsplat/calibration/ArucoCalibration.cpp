@@ -21,8 +21,6 @@ namespace fs = std::filesystem;
 
 namespace {
 
-constexpr const char* kCalibrationResultSchema = "gs.calibration.result.v1";
-
 std::string toLower(std::string value) {
     std::ranges::transform(value, value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
@@ -109,13 +107,13 @@ int cornerRefinementMethodFromName(const std::string& name) {
  */
 int calibrationFlagsFromConfig(const CalibrationFlagsConfig& config) {
     int flags = 0;
-    if (config.fixK4) {
+    if (config.fix_k4) {
         flags |= cv::CALIB_FIX_K4;
     }
-    if (config.fixK5) {
+    if (config.fix_k5) {
         flags |= cv::CALIB_FIX_K5;
     }
-    if (config.fixK6) {
+    if (config.fix_k6) {
         flags |= cv::CALIB_FIX_K6;
     }
     return flags;
@@ -295,12 +293,12 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
     }
 
     const cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(dictionaryType.value());
-    const cv::aruco::GridBoard board(cv::Size(config.board.markersX, config.board.markersY),
-                                     static_cast<float>(config.board.markerLengthMeters),
-                                     static_cast<float>(config.board.markerSeparationMeters), dictionary);
+    const cv::aruco::GridBoard board(cv::Size(config.board.markers_x.value(), config.board.markers_y.value()),
+                                     static_cast<float>(config.board.marker_length_m.value()),
+                                     static_cast<float>(config.board.marker_separation_m.value()), dictionary);
 
     cv::aruco::DetectorParameters detectorParameters;
-    detectorParameters.cornerRefinementMethod = cornerRefinementMethodFromName(config.detector.cornerRefinement);
+    detectorParameters.cornerRefinementMethod = cornerRefinementMethodFromName(config.detector.corner_refinement.name());
     const cv::aruco::ArucoDetector detector(dictionary, detectorParameters);
 
     std::vector<DetectedView> views;
@@ -325,11 +323,11 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
         std::vector<int> ids;
         detector.detectMarkers(image, corners, ids, rejectedCorners);
 
-        if (config.detector.refineDetections && !ids.empty()) {
+        if (config.detector.refine_detections && !ids.empty()) {
             detector.refineDetectedMarkers(image, board, corners, ids, rejectedCorners);
         }
 
-        if (std::cmp_less(ids.size(), config.detector.minMarkersPerFrame)) {
+        if (std::cmp_less(ids.size(), config.detector.min_markers_per_frame.value())) {
             spdlog::warn("Skipping {} with only {} detected markers", imagePath.string(), ids.size());
             continue;
         }
@@ -373,41 +371,42 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
         cv::calibrateCamera(objectPoints, imagePoints, calibrationImageSize, cameraMatrix, distCoeffs, rvecs, tvecs,
                             calibrationFlagsFromConfig(config.calibration));
 
-    CalibrationResult result;
-    result.schema = kCalibrationResultSchema;
-    result.name = config.name;
-    result.sourceConfig = sourceConfigPath;
-    result.imagePath = config.paths.images;
-    result.inputImageCount = static_cast<int>(imagePaths.size());
-    result.acceptedFrameCount = static_cast<int>(views.size());
-    result.imageSize = ImageSize{.width = calibrationImageSize.width, .height = calibrationImageSize.height};
-    result.rmsReprojectionErrorPixels = rmsError;
-    result.board = config.board;
-    result.camera = CameraModel{.matrix = cvMatrix3(cameraMatrix), .distortionCoefficients = cvVectorX(distCoeffs)};
-
-    result.frames.reserve(views.size());
+    std::vector<FrameCalibrationResult> frames;
+    frames.reserve(views.size());
     for (std::size_t i = 0; i < views.size(); ++i) {
         cv::Mat rotation;
         cv::Rodrigues(rvecs[i], rotation);
         const Matrix3 rotationEigen = cvMatrix3(rotation);
         const Vector3 translationEigen = cvVector3(tvecs[i]);
 
-        FrameCalibrationResult frame;
-        frame.image = views[i].imagePath;
-        frame.detectedMarkerCount = static_cast<int>(views[i].markerIds.size());
-        frame.matchedCornerCount = static_cast<int>(views[i].imagePoints.size());
-        frame.meanReprojectionErrorPixels = meanReprojectionError(views[i].objectPoints, views[i].imagePoints, rvecs[i],
-                                                                  tvecs[i], cameraMatrix, distCoeffs);
-        frame.detectedIds = views[i].markerIds;
-        frame.rvecBoardToCamera = cvVector3(rvecs[i]);
-        frame.tvecBoardToCameraMeters = translationEigen;
-        frame.rotationBoardToCamera = rotationEigen;
-        frame.transformBoardToCamera = makeTransform(rotationEigen, translationEigen);
-        frame.cameraCenterBoardMeters = cameraCenterInBoardFrame(rotationEigen, translationEigen);
-        result.frames.push_back(std::move(frame));
+        frames.push_back({
+            .image = views[i].imagePath,
+            .detected_marker_count = static_cast<int>(views[i].markerIds.size()),
+            .matched_corner_count = static_cast<int>(views[i].imagePoints.size()),
+            .mean_reprojection_error_px = meanReprojectionError(views[i].objectPoints, views[i].imagePoints, rvecs[i],
+                                                                 tvecs[i], cameraMatrix, distCoeffs),
+            .detected_ids = views[i].markerIds,
+            .rvec_board_to_camera = cvVector3(rvecs[i]),
+            .tvec_board_to_camera_m = translationEigen,
+            .rotation_board_to_camera = rotationEigen,
+            .transform_board_to_camera = makeTransform(rotationEigen, translationEigen),
+            .camera_center_board_m = cameraCenterInBoardFrame(rotationEigen, translationEigen),
+        });
     }
 
-    return result;
+    return CalibrationResult{
+        .schema = {},
+        .name = config.name,
+        .source = {.config = sourceConfigPath,
+                   .image_path = config.paths.images,
+                   .input_image_count = static_cast<int>(imagePaths.size()),
+                   .accepted_frame_count = static_cast<int>(views.size())},
+        .image_size = {.width = calibrationImageSize.width, .height = calibrationImageSize.height},
+        .rms_reprojection_error_px = rmsError,
+        .board = config.board,
+        .camera = {.matrix = cvMatrix3(cameraMatrix), .distortion_coefficients = cvVectorX(distCoeffs)},
+        .frames = std::move(frames),
+    };
 }
 
 int writeCoordinateSystemVisualizations(const CalibrationResult& result, const std::filesystem::path& outputDir,
@@ -423,7 +422,7 @@ int writeCoordinateSystemVisualizations(const CalibrationResult& result, const s
     cv::Mat cameraMatrix;
     cv::Mat distCoeffs;
     cv::eigen2cv(result.camera.matrix, cameraMatrix);
-    cv::eigen2cv(result.camera.distortionCoefficients, distCoeffs);
+    cv::eigen2cv(result.camera.distortion_coefficients, distCoeffs);
 
     int written = 0;
     for (const FrameCalibrationResult& frame : result.frames) {
@@ -435,8 +434,8 @@ int writeCoordinateSystemVisualizations(const CalibrationResult& result, const s
 
         cv::Mat rvec;
         cv::Mat tvec;
-        cv::eigen2cv(frame.rvecBoardToCamera, rvec);
-        cv::eigen2cv(frame.tvecBoardToCameraMeters, tvec);
+        cv::eigen2cv(frame.rvec_board_to_camera, rvec);
+        cv::eigen2cv(frame.tvec_board_to_camera_m, tvec);
         cv::drawFrameAxes(image, cameraMatrix, distCoeffs, rvec, tvec, static_cast<float>(axisLengthMeters));
 
         const fs::path outputPath = outputDir / frame.image.filename();

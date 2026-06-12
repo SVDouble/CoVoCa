@@ -18,8 +18,8 @@ int calibrate(const fs::path& configPath) {
     gs::calibration::saveCalibrationResult(config.paths.result, result);
 
     spdlog::info("Wrote calibration result to {}", config.paths.result.string());
-    spdlog::info("Accepted {} / {} images, RMS reprojection error: {} px", result.acceptedFrameCount,
-                 result.inputImageCount, result.rmsReprojectionErrorPixels);
+    spdlog::info("Accepted {} / {} images, RMS reprojection error: {} px", result.source.accepted_frame_count.value(),
+                 result.source.input_image_count.value(), result.rms_reprojection_error_px.value());
     return 0;
 }
 
