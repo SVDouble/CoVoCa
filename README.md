@@ -1,99 +1,131 @@
 # Gaussian Splatting Reconstruction
 
-This project compares voxel carving and 3D Gaussian Splatting for reconstructing objects from calibrated multi-view image captures.
+Voxel carving and 3D Gaussian Splatting experiments for calibrated multi-view
+captures.
 
-The broader project plan is documented in `docs/proposal/`.
+- Proposal: `docs/proposal/`
+- Tooling: `docs/development/tooling.md`
+- Voxel carving requirements: `docs/specs/voxel_carving.md`
 
-## Current Status
+## Build
 
-- Build system and editor setup are in place: CMake presets, a root Makefile, clangd config, VS Code tasks, and a minimal devcontainer.
-- The code currently contains basic `Voxel` and `VoxelGrid` classes plus a small prototype executable.
-- The proposal can be built locally from `docs/proposal`.
-- Next implementation work is camera calibration/data loading and silhouette-based voxel carving.
-
-## Build And Run
-
-Install the current required dependencies:
+System packages:
 
 ```bash
-sudo apt install cmake g++ make ninja-build libeigen3-dev
+sudo apt install cmake g++ make ninja-build clang-format clang-tidy cppcheck valgrind libeigen3-dev libopencv-dev libspdlog-dev libyaml-cpp-dev
 ```
 
-For the proposal PDF, install a LaTeX distribution with `pdflatex` and `bibtex`, for example:
-
-```bash
-sudo apt install texlive-latex-extra texlive-fonts-recommended
-```
-
-The presets require CMake 3.20 or newer.
-
-Configure and build with the default debug preset:
+CMake fetches CLI11 and reflect-cpp if they are not installed. Native vcpkg
+users can use `vcpkg.json`.
 
 ```bash
 cmake --preset debug
-cmake --build --preset debug-main
+cmake --build --preset debug-voxel-demo
+./build/debug/voxel_demo
 ```
 
-Or use the root Makefile:
+Make targets:
 
 ```bash
 make project
+make run
+make release
 ```
 
-Run the prototype:
+## Calibration
+
+Download the sample ArUco dataset:
 
 ```bash
-./build/debug/main
+uv run --project gsplat_toolkit --python 3.14 download-aruco-sample
 ```
 
-For an optimized build, use `release` and `release-main` instead.
+Run calibration:
 
-Build the proposal PDF:
+```bash
+cmake --preset debug
+cmake --build --preset debug-aruco-calibrate
+./build/debug/aruco_calibrate calibrate --config configs/calibration/aruco_sample.yaml
+```
+
+Result:
+
+```text
+data/sample_aruco/calibration_result.yaml
+```
+
+Draw coordinate axes:
+
+```bash
+./build/debug/aruco_calibrate visualize --result data/sample_aruco/calibration_result.yaml --output-dir data/sample_aruco/calibration_axes --axis-length-m 0.05625
+```
+
+OpenCV GridBoard coordinates lie in the board plane. Board `+Z` is the board
+normal. Camera `+Z` points forward along the optical axis. Results store
+`board_to_camera`, mapping board/world points into camera coordinates.
+
+For your own capture, copy `configs/calibration/aruco_sample.yaml` and edit
+paths plus board geometry.
+
+Make targets:
+
+```bash
+make calibration
+make download-sample-data
+make calibrate-sample
+make visualize-calibration
+```
+
+## Quality
+
+```bash
+make format-check
+make lint
+make static-analysis
+make python-check
+make sanitize
+make memcheck
+make pre-commit
+```
+
+Install hooks:
+
+```bash
+make pre-commit-install
+```
+
+Build proposal PDF:
 
 ```bash
 make docs
 ```
 
-The PDF is written to `build/docs/proposal/main.pdf`.
-
-## VS Code
-
-The repository includes CMake presets and shared VS Code workspace settings. With the recommended CMake Tools extension installed, VS Code will pick up the `debug` and `release` configure presets automatically.
-
-Available tasks:
-
-- `Make: project`
-- `Make: release`
-- `Make: run`
-- `Make: docs`
-
-## Project Structure
+## Layout
 
 ```text
-.
-├── CMakeLists.txt        # Build configuration
-├── CMakePresets.json     # Debug/release configure and build presets
-├── Makefile              # Convenience targets for code and docs builds
-├── .clangd               # clangd compile database configuration
-├── .devcontainer/        # Minimal C++ development container
-├── .vscode/              # Shared VS Code tasks and extension recommendations
-├── docs/proposal/        # LaTeX proposal, references, and milestones
-├── include/              # Header-only project code for now
-└── src/                  # Executable entry points
+apps/                 C++ executables
+configs/              entry-point YAML configs
+docs/development/     tooling notes
+docs/proposal/        LaTeX proposal
+docs/specs/           implementation requirements
+gsplat_toolkit/       uv-managed Python helpers
+include/gsplat/       public C++ headers
+src/gsplat/           C++ implementations
 ```
 
-## Intended Pipeline
+## Pipeline
 
-1. Capture object images from multiple viewpoints.
-2. Estimate camera intrinsics and extrinsics with OpenCV and ArUco marker boards.
-3. Generate foreground masks for each calibrated view.
-4. Reconstruct a voxel-carving baseline from silhouette consistency.
-5. Initialize and optimize a simplified Gaussian scene representation.
-6. Compare both methods by visual quality, runtime, memory use, and robustness.
+1. Capture calibrated multi-view images.
+1. Estimate intrinsics and poses with OpenCV ArUco boards.
+1. Create foreground masks.
+1. Build an Open3D-comparable voxel-carving baseline.
+1. Train/evaluate Gaussian Splatting with `gsplat`.
 
-## Expected Future Dependencies
+## Dependencies
 
-- OpenCV: image I/O, ArUco detection, calibration, masks, and image processing.
-- nlohmann/json or yaml-cpp: dataset and experiment configuration.
-- CUDA: optional acceleration for splatting and optimization.
-- OpenGL: optional interactive visualization.
+- OpenCV: image I/O, ArUco, calibration, masks.
+- Eigen: linear algebra.
+- spdlog: C++ logging.
+- CLI11: command-line parsing.
+- reflect-cpp + yaml-cpp: typed YAML/JSON config and result IO.
+- CUDA/OpenGL: optional later acceleration and visualization.

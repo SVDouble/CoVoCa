@@ -6,13 +6,13 @@
 
 \item Dataset Acquisition: We will capture custom multi-view datasets using a smartphone camera. The datasets will contain several object categories, including textured, textureless, and reflective objects, to evaluate the robustness of the reconstruction methods across different surface properties. We will capture images from multiple viewpoints with sufficient overlap between neighboring views, and estimate camera intrinsics and extrinsics using OpenCV and ArUco marker boards.
 
-\item Voxel Carving: We will implement a classical space carving pipeline in C++. The algorithm will initialize a dense voxel grid around the object and iteratively remove voxels whose projections are inconsistent with the object silhouettes in the calibrated camera views. We will use the resulting voxel model as a classical reconstruction baseline and as a possible initialization source for the Gaussian Splatting pipeline.
+\item Voxel Carving Reference: We will implement a compact silhouette-based voxel carving pipeline in C++ as a deterministic reference baseline, not as a full competing reconstruction system. The algorithm will initialize a dense voxel grid around the object and remove voxels whose projections are inconsistent with the foreground masks in the calibrated camera views. We will use the resulting visual hull to sanity-check calibration and masks, to provide a coarse geometric comparison against Gaussian Splatting, and optionally as an initialization source if it proves useful. We will benchmark this reference against Open3D's voxel carving functionality on the same masks, camera parameters, volume bounds, and voxel size.
 
-\item 3D Gaussian Splatting: The main goal of the project is to reimplement the core components of 3D Gaussian Splatting~\cite{Kerbl2023GaussianSplatting} in C++. We will represent the scene as a set of anisotropic 3D Gaussians with optimizable position, scale, rotation, opacity, and color parameters. In contrast to the original paper, we will obtain camera intrinsics and extrinsics from our ArUco/OpenCV calibration pipeline rather than from a structure-from-motion reconstruction. We will implement a differentiable splatting renderer that projects the Gaussians into the calibrated camera views and optimizes their parameters by minimizing the difference between rendered and reference images.
+\item 3D Gaussian Splatting: The main goal of the project is to reimplement the core components of 3D Gaussian Splatting~\cite{Kerbl2023GaussianSplatting} in C++. We will represent the scene as a set of anisotropic 3D Gaussians with optimizable position, scale, rotation, opacity, and color parameters. In contrast to the original paper, we will obtain camera intrinsics and extrinsics from our ArUco/OpenCV calibration pipeline rather than from a structure-from-motion reconstruction. We will implement a differentiable splatting renderer that projects the Gaussians into the calibrated camera views and optimizes their parameters by minimizing the difference between rendered and reference images. We will use the gsplat library as the practical Gaussian Splatting benchmark and the GraphDeco/Inria implementation as the paper reference.
 
 \item Simplifications and Scope: Since the full 3DGS pipeline is complex, we will focus on the main algorithmic components rather than matching the real-time performance of the original method. We will first implement a simplified version using isotropic or low-complexity anisotropic Gaussians and direct RGB colors. If time permits, we will extend the representation to include full anisotropic covariance, spherical harmonics for view-dependent color, adaptive density control via Gaussian splitting and pruning, and a GPU-accelerated rasterization pipeline.
 
-\item Evaluation: We will compare Voxel Carving and 3D Gaussian Splatting quantitatively and qualitatively on the same custom datasets. We will evaluate reconstruction quality, runtime, memory consumption, and robustness across different object types and material properties.
+\item Evaluation: We will evaluate our reference voxel carving result, our Gaussian Splatting prototype, and external library baselines on the same custom datasets. For voxel carving, we will report occupied voxel counts, approximate overlap with the Open3D result, runtime, memory use, and qualitative visual-hull behavior. For Gaussian Splatting, we will compare against gsplat using image-quality metrics where possible, runtime, memory consumption, and qualitative novel-view rendering behavior.
 
 \end{itemize}
 
@@ -33,7 +33,9 @@
 
 \item OpenGL: We may use OpenGL for interactive visualization of the reconstructed Gaussian scene.
 
-\item nlohmann/json or yaml-cpp: We will use a structured configuration format to store dataset paths, camera parameters, calibration results, and experiment settings.
+\item reflect-cpp with YAML support: We will use typed structured configuration to store dataset paths, camera parameters, calibration results, and experiment settings.
+
+\item Benchmark Libraries: We will use Open3D as the voxel-carving reference benchmark and gsplat as the Gaussian Splatting benchmark library. We may use the official GraphDeco/Inria implementation for paper-reference behavior and qualitative comparison.
 
 \item PLY/OBJ Export Library: We will use a lightweight mesh or point-cloud export library to save voxel and Gaussian reconstructions for external visualization.
 
