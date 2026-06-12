@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <stdexcept>
 #include <vector>
@@ -65,12 +66,24 @@ bool isOff(ExportFormat format) {
 
 } // namespace
 
-void writeOccupiedPoints(const std::filesystem::path& path, const VoxelVolume& volume, ExportFormat format) {
+/**
+ * @brief Writes a vertex's color columns, if colors are being written.
+ *
+ * Args:
+ *   stream: Output stream, positioned just after the vertex coordinates.
+ *   rgb: Color to write, in `(red, green, blue)` order.
+ */
+void writeVertexColor(std::ofstream& stream, const Rgb& rgb) {
+    stream << " " << static_cast<int>(rgb[0]) << " " << static_cast<int>(rgb[1]) << " " << static_cast<int>(rgb[2]);
+}
+
+void writeOccupiedPoints(const std::filesystem::path& path, const VoxelVolume& volume, ExportFormat format,
+                         const VoxelColors* colors) {
     const std::vector<GridIndex> indices = occupiedIndices(volume);
 
     std::ofstream stream = openOutput(path);
     if (isOff(format)) {
-        stream << "OFF\n" << indices.size() << " 0 0\n";
+        stream << (colors != nullptr ? "COFF\n" : "OFF\n") << indices.size() << " 0 0\n";
     } else {
         stream << "ply\n"
                   "format ascii 1.0\n"
@@ -79,23 +92,33 @@ void writeOccupiedPoints(const std::filesystem::path& path, const VoxelVolume& v
                << "\n"
                   "property float x\n"
                   "property float y\n"
-                  "property float z\n"
-                  "end_header\n";
+                  "property float z\n";
+        if (colors != nullptr) {
+            stream << "property uchar red\n"
+                      "property uchar green\n"
+                      "property uchar blue\n";
+        }
+        stream << "end_header\n";
     }
 
     for (const GridIndex& index : indices) {
         const Eigen::Vector3d center = volume.center(index);
-        stream << center.x() << " " << center.y() << " " << center.z() << "\n";
+        stream << center.x() << " " << center.y() << " " << center.z();
+        if (colors != nullptr) {
+            writeVertexColor(stream, colors->at(volume.flatIndex(index)));
+        }
+        stream << "\n";
     }
 }
 
-void writeOccupiedCubeMesh(const std::filesystem::path& path, const VoxelVolume& volume, ExportFormat format) {
+void writeOccupiedCubeMesh(const std::filesystem::path& path, const VoxelVolume& volume, ExportFormat format,
+                           const VoxelColors* colors) {
     const std::vector<GridIndex> indices = occupiedIndices(volume);
     const std::size_t triangleCount = indices.size() * kCubeFaces.size() * 2;
 
     std::ofstream stream = openOutput(path);
     if (isOff(format)) {
-        stream << "OFF\n" << (indices.size() * 8) << " " << triangleCount << " 0\n";
+        stream << (colors != nullptr ? "COFF\n" : "OFF\n") << (indices.size() * 8) << " " << triangleCount << " 0\n";
     } else {
         stream << "ply\n"
                   "format ascii 1.0\n"
@@ -104,8 +127,13 @@ void writeOccupiedCubeMesh(const std::filesystem::path& path, const VoxelVolume&
                << "\n"
                   "property float x\n"
                   "property float y\n"
-                  "property float z\n"
-                  "element face "
+                  "property float z\n";
+        if (colors != nullptr) {
+            stream << "property uchar red\n"
+                      "property uchar green\n"
+                      "property uchar blue\n";
+        }
+        stream << "element face "
                << triangleCount
                << "\n"
                   "property list uchar int vertex_indices\n"
@@ -114,7 +142,11 @@ void writeOccupiedCubeMesh(const std::filesystem::path& path, const VoxelVolume&
 
     for (const GridIndex& index : indices) {
         for (const Eigen::Vector3d& corner : volume.corners(index)) {
-            stream << corner.x() << " " << corner.y() << " " << corner.z() << "\n";
+            stream << corner.x() << " " << corner.y() << " " << corner.z();
+            if (colors != nullptr) {
+                writeVertexColor(stream, colors->at(volume.flatIndex(index)));
+            }
+            stream << "\n";
         }
     }
 

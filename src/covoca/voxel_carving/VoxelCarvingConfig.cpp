@@ -37,6 +37,14 @@ void validateVoxelCarvingConfig(const VoxelCarvingConfig& config) {
     if (config.export_config.get().occupied_mesh_file.empty()) {
         throw std::runtime_error("config field must not be empty: export.occupied_mesh_file");
     }
+    if (config.color) {
+        if (config.color->occupied_points_file.empty()) {
+            throw std::runtime_error("config field must not be empty: color.occupied_points_file");
+        }
+        if (config.color->occupied_mesh_file.empty()) {
+            throw std::runtime_error("config field must not be empty: color.occupied_mesh_file");
+        }
+    }
 }
 
 } // namespace covoca::voxel_carving

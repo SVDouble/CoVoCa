@@ -134,9 +134,13 @@ add_library(covoca_voxel_carving
     src/covoca/voxel_carving/VoxelCarvingConfig.cpp
     src/covoca/voxel_carving/VoxelVolume.cpp
     src/covoca/voxel_carving/SilhouetteMask.cpp
+    src/covoca/voxel_carving/ColorImage.cpp
     src/covoca/voxel_carving/CalibratedView.cpp
     src/covoca/voxel_carving/SilhouetteConsistency.cpp
     src/covoca/voxel_carving/VoxelCarver.cpp
+    src/covoca/voxel_carving/VoxelColors.cpp
+    src/covoca/voxel_carving/ColorReconstruction.cpp
+    src/covoca/voxel_carving/VoxelColorizer.cpp
     src/covoca/voxel_carving/VoxelExport.cpp
 )
 

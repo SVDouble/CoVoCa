@@ -21,3 +21,8 @@ export:
   format: ply
   occupied_points_file: visual_hull_points.ply
   occupied_mesh_file: visual_hull_voxels.ply
+
+color:
+  method: weighted_average
+  occupied_points_file: visual_hull_points_color.ply
+  occupied_mesh_file: visual_hull_voxels_color.ply

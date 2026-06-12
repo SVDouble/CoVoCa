@@ -5,8 +5,8 @@
 namespace covoca::voxel_carving {
 
 CalibratedView::CalibratedView(calibration::CameraModel camera, calibration::FrameCalibrationResult frame,
-                               SilhouetteMask mask)
-    : camera_(std::move(camera)), frame_(std::move(frame)), mask_(std::move(mask)) {}
+                               SilhouetteMask mask, std::optional<ColorImage> color)
+    : camera_(std::move(camera)), frame_(std::move(frame)), mask_(std::move(mask)), color_(std::move(color)) {}
 
 ProjectionResult CalibratedView::projectWorldPoint(const Eigen::Vector3d& pointWorld) const {
     // board_to_camera: X_camera = R * X_world + t.
@@ -41,6 +41,19 @@ bool CalibratedView::isForeground(const Eigen::Vector2d& pixel) const {
 
 const std::filesystem::path& CalibratedView::imagePath() const {
     return frame_.image;
+}
+
+std::optional<Rgb> CalibratedView::sampleColor(const Eigen::Vector2d& pixel) const {
+    if (!color_) {
+        return std::nullopt;
+    }
+    return color_->colorAt(pixel);
+}
+
+Eigen::Vector3d CalibratedView::cameraOrigin() const {
+    // board_to_camera: X_camera = R * X_world + t, so X_world = R^T * (X_camera - t).
+    // The camera's optical center is X_camera = 0, giving C = -R^T * t.
+    return -frame_.rotation_board_to_camera.transpose() * frame_.tvec_board_to_camera_m;
 }
 
 } // namespace covoca::voxel_carving

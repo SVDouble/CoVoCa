@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <optional>
 #include <vector>
 
 #include <CLI/CLI.hpp>
@@ -6,9 +7,11 @@
 
 #include "covoca/calibration/CalibrationResult.h"
 #include "covoca/voxel_carving/CalibratedView.h"
+#include "covoca/voxel_carving/ColorImage.h"
 #include "covoca/voxel_carving/SilhouetteMask.h"
 #include "covoca/voxel_carving/VoxelCarver.h"
 #include "covoca/voxel_carving/VoxelCarvingConfig.h"
+#include "covoca/voxel_carving/VoxelColorizer.h"
 #include "covoca/voxel_carving/VoxelExport.h"
 
 namespace fs = std::filesystem;
@@ -24,7 +27,13 @@ int run(const fs::path& configPath) {
     for (const auto& frame : calibration.frames) {
         const fs::path maskPath = config.paths.masks_dir / frame.image.stem().concat(".png");
         auto mask = covoca::voxel_carving::SilhouetteMask::load(maskPath, config.carving.foreground_threshold);
-        views.emplace_back(calibration.camera, frame, std::move(mask));
+
+        std::optional<covoca::voxel_carving::ColorImage> color;
+        if (config.color) {
+            color = covoca::voxel_carving::ColorImage::load(frame.image);
+        }
+
+        views.emplace_back(calibration.camera, frame, std::move(mask), std::move(color));
     }
 
     const covoca::voxel_carving::VoxelCarver carver(config);
@@ -39,6 +48,20 @@ int run(const fs::path& configPath) {
     spdlog::info("Input voxels: {}, occupied: {}, carved: {}, runtime: {} s", result.stats.inputVoxelCount,
                  result.stats.occupiedVoxelCount, result.stats.carvedVoxelCount, result.stats.elapsedSeconds);
     spdlog::info("Wrote {} and {}", pointsPath.string(), meshPath.string());
+
+    if (config.color) {
+        const covoca::voxel_carving::VoxelColorizer colorizer(*config.color);
+        const auto colors = colorizer.run(result.volume, views);
+
+        const fs::path colorPointsPath = config.paths.output_dir / config.color->occupied_points_file;
+        const fs::path colorMeshPath = config.paths.output_dir / config.color->occupied_mesh_file;
+        covoca::voxel_carving::writeOccupiedPoints(colorPointsPath, result.volume, exportConfig.format, &colors);
+        covoca::voxel_carving::writeOccupiedCubeMesh(colorMeshPath, result.volume, exportConfig.format, &colors);
+
+        spdlog::info("Wrote {} and {} (color method: {})", colorPointsPath.string(), colorMeshPath.string(),
+                     config.color->method.name());
+    }
+
     return 0;
 }
 

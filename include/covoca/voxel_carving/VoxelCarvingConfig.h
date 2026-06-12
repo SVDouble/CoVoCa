@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 
 #include <Eigen/Dense>
@@ -16,6 +17,7 @@ using ConfigSchema = rfl::Literal<"gs.voxel_carving.config.v1">;
 using SamplePolicy = rfl::Literal<"center", "corners", "center_and_corners">;
 using OutsideImagePolicy = rfl::Literal<"carve", "keep", "ignore_view">;
 using ExportFormat = rfl::Literal<"ply", "off">;
+using ColorMethod = rfl::Literal<"average", "best_view", "weighted_average", "median">;
 using covoca::config::PositiveDouble;
 using covoca::config::PositiveInt;
 
@@ -113,6 +115,41 @@ struct ExportConfig {
     std::filesystem::path occupied_mesh_file;
 };
 
+/// Color-reconstruction settings.
+///
+/// Controls how each occupied voxel is assigned an RGB color from its
+/// projections into the calibrated views' source images. If this section is
+/// absent from the config, no color reconstruction is performed and only the
+/// uncolored exports from `ExportConfig` are written.
+struct ColorConfig {
+    /// Per-voxel color reconstruction strategy:
+    ///  - `"average"`: mean RGB over every view in which the voxel's center
+    ///    projects onto foreground (Color Averaging; Seitz and Dyer,
+    ///    "Photorealistic Scene Reconstruction by Voxel Coloring", IJCV
+    ///    1999).
+    ///  - `"best_view"`: color from the single view whose viewing direction
+    ///    is most aligned with the voxel's estimated surface normal (Best
+    ///    Viewpoint Selection; cf. Debevec, Borshukov, and Yu, "Efficient
+    ///    View-Dependent Image-Based Rendering with Projective
+    ///    Texture-Mapping", EGRW 1998).
+    ///  - `"weighted_average"`: RGB averaged with per-view weights equal to
+    ///    `max(0, normal . view_direction)` (Weighted Color Averaging; cf.
+    ///    Buehler et al., "Unstructured Lumigraph Rendering", SIGGRAPH 2001).
+    ///  - `"median"`: per-channel median over every contributing view,
+    ///    reducing the influence of outlier observations (Median Color
+    ///    Selection).
+    ColorMethod method;
+
+    /// Filename for the colored point cloud (one vertex per occupied voxel),
+    /// relative to `paths.output_dir`. Written in the format selected by
+    /// `export.format`.
+    std::filesystem::path occupied_points_file;
+
+    /// Filename for the colored cube mesh, relative to `paths.output_dir`.
+    /// Written in the format selected by `export.format`.
+    std::filesystem::path occupied_mesh_file;
+};
+
 /// Full voxel-carving configuration loaded from a YAML/JSON file.
 ///
 /// See `datasets/aruco_sample/voxel_carving.yaml` for a complete example.
@@ -137,6 +174,10 @@ struct VoxelCarvingConfig {
     /// `.get()`) because `export` is a reserved C++ keyword, but the YAML/JSON
     /// key is `export`. See `ExportConfig`.
     rfl::Rename<"export", ExportConfig> export_config;
+
+    /// Optional color-reconstruction settings. See `ColorConfig`. If absent,
+    /// no colored outputs are produced.
+    std::optional<ColorConfig> color;
 };
 
 /**

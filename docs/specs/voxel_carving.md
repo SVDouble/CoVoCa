@@ -116,7 +116,19 @@ export:
   format: ply
   occupied_points_file: visual_hull_points.ply
   occupied_mesh_file: visual_hull_voxels.ply
+
+color:
+  method: weighted_average
+  occupied_points_file: visual_hull_points_color.ply
+  occupied_mesh_file: visual_hull_voxels_color.ply
 ```
+
+`color` is optional. If present, `voxel_carve` additionally assigns an RGB
+color to every occupied voxel and writes a second, colored point
+cloud/mesh pair. `color.method` selects the reconstruction strategy:
+`"average"`, `"best_view"`, `"weighted_average"`, or `"median"`. See
+[`../development/voxel_carving_algorithm.md`](../development/voxel_carving_algorithm.md)
+§4 for the algorithm and per-method references.
 
 Use the same reflect-cpp config pattern as calibration:
 

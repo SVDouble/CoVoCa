@@ -165,7 +165,93 @@ selected by `export.format`:
 
 Both files are written to `paths.output_dir`, named by `export.*`.
 
-## 4. Worked example
+## 4. Color reconstruction (optional)
+
+If the config has a `color` section, `voxel_carve` additionally assigns an
+RGB color to every occupied voxel and writes a second, colored pair of
+point-cloud/mesh files named by `color.occupied_points_file` and
+`color.occupied_mesh_file`.
+
+### 4.1 Loading color images
+
+When `color` is present, each `CalibratedView` also loads a `ColorImage` from
+the frame's source image (`frame.image` — the same image used for
+calibration and silhouette extraction). `ColorImage::colorAt(pixel)` returns
+the `(red, green, blue)` value at a pixel, or `std::nullopt` if the pixel is
+outside the image.
+
+### 4.2 Per-voxel sample gathering (`VoxelColorizer::run`)
+
+For each occupied voxel:
+
+1. Project the voxel's `center(index)` into every view
+   (`CalibratedView::projectWorldPoint`).
+2. Keep only views where the projection is in front of the camera, inside
+   the image, and `isForeground(pixel)` is true.
+3. Sample that view's color image at the projected pixel. Skip views with no
+   loaded color image or whose pixel falls outside it.
+4. Compute a per-view weight `max(0, normal . view_direction)`, where
+   `view_direction` points from the voxel center toward
+   `CalibratedView::cameraOrigin()`, and `normal` is the voxel's estimated
+   outward surface normal (§4.3). If no normal could be estimated, every
+   view gets weight `1`.
+
+Each kept view contributes one `ColorSample{rgb, weight}`. Voxels with zero
+contributing samples keep the default black color `(0, 0, 0)`.
+
+### 4.3 Surface normal estimation
+
+`estimateOutwardNormal` (in `VoxelColorizer.cpp`) estimates a voxel's outward
+normal from the occupancy gradient of its 6-neighborhood: for each axis, it
+subtracts the occupancy of the `-1` neighbor from the occupancy of the `+1`
+neighbor (neighbors outside the grid count as unoccupied). Occupancy
+increases toward the interior, so the outward normal is `-gradient`,
+normalized. If the gradient is zero (e.g. a fully interior voxel with no
+exposed face), the normal is the zero vector and every view gets weight `1`.
+
+### 4.4 Combining samples (`ColorReconstruction.h`)
+
+The collected `ColorSample`s are combined into one `(red, green, blue)` color
+by the `ColorReconstructor` selected by `color.method`
+(`ColorReconstruction.cpp`):
+
+- **`"average"`** (Method 1, Color Averaging): mean RGB over all samples,
+  ignoring weights. Reference: Seitz and Dyer, "Photorealistic Scene
+  Reconstruction by Voxel Coloring", IJCV 1999
+  (<https://www1.cs.columbia.edu/~allen/PHOTOPAPERS/seitz.long.pdf>).
+- **`"best_view"`** (Method 2, Best Viewpoint Selection): the color from the
+  sample with the highest weight, i.e. the view whose viewing direction is
+  most aligned with the voxel's normal. Reference: Debevec, Borshukov, and Yu,
+  "Efficient View-Dependent Image-Based Rendering with Projective
+  Texture-Mapping", EGRW 1998
+  (<https://www.pauldebevec.com/Research/VDTM/debevec_vdtm_egrw98.pdf>).
+- **`"weighted_average"`** (Method 3, Weighted Color Averaging): RGB averaged
+  with each sample weighted by its `weight`; falls back to `"average"` if
+  every weight is zero. Reference: Buehler, Bosse, McMillan, Gortler, and
+  Cohen, "Unstructured Lumigraph Rendering", SIGGRAPH 2001.
+- **`"median"`** (Method 4, Median Color Selection): per-channel median over
+  all samples, ignoring weights. Robust to outlier observations (occlusion
+  errors, specular highlights, calibration drift) compared to averaging.
+
+Each method is a free function; `voxel_carve` selects the configured one via
+`colorReconstructorFor(color.method)`, which returns a `ColorReconstructor`
+function pointer reused for every voxel.
+
+### 4.5 Colored export
+
+`VoxelColorizer::run` returns a `VoxelColors` buffer (one `(red, green,
+blue)` triple per voxel, flat-indexed like `VoxelVolume`). `VoxelExport`'s
+`writeOccupiedPoints`/`writeOccupiedCubeMesh` take an optional
+`const VoxelColors*`:
+
+- PLY: adds `property uchar red`/`green`/`blue` after the `x`/`y`/`z`
+  properties, and writes three extra integer columns per vertex.
+- OFF: the header becomes `COFF` instead of `OFF`, with the same extra
+  columns.
+
+For the cube mesh, all 8 corner vertices of a voxel share that voxel's color.
+
+## 5. Worked example
 
 With `volume.min_m = [-0.15, -0.15, 0.0]`, `volume.max_m = [0.15, 0.15, 0.3]`,
 `voxel_size_m = 0.005`: grid dimensions `(60, 60, 60)`, `voxelCount = 216000`.
@@ -179,7 +265,7 @@ For voxel `index = (30, 30, 10)`:
 - If every view votes "foreground" (directly, or via `"keep"`/
   `"ignore_view"`), the voxel remains occupied; otherwise it is carved.
 
-## 5. Glossary
+## 6. Glossary
 
 - **Voxel**: a cubic cell of 3D space; the 3D analogue of a pixel.
 - **Visual hull**: the largest 3D shape consistent with a set of silhouette

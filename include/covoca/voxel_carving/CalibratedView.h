@@ -1,10 +1,12 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 
 #include <Eigen/Dense>
 
 #include "covoca/calibration/CalibrationResult.h"
+#include "covoca/voxel_carving/ColorImage.h"
 #include "covoca/voxel_carving/SilhouetteMask.h"
 
 namespace covoca::voxel_carving {
@@ -27,8 +29,12 @@ class CalibratedView {
      *   camera: Intrinsics shared by all frames in the calibration result.
      *   frame: Per-frame board-to-camera pose and image path.
      *   mask: Loaded silhouette mask for this frame's image.
+     *   color: Loaded color image for this frame, used for color
+     *     reconstruction. `std::nullopt` if color reconstruction is
+     *     disabled.
      */
-    CalibratedView(calibration::CameraModel camera, calibration::FrameCalibrationResult frame, SilhouetteMask mask);
+    CalibratedView(calibration::CameraModel camera, calibration::FrameCalibrationResult frame, SilhouetteMask mask,
+                   std::optional<ColorImage> color = std::nullopt);
 
     /**
      * @brief Projects a world-space point into this view's image.
@@ -61,10 +67,34 @@ class CalibratedView {
     /// Path to this frame's source image.
     [[nodiscard]] const std::filesystem::path& imagePath() const;
 
+    /**
+     * @brief Samples this view's color image at a projected pixel.
+     *
+     * Args:
+     *   pixel: Pixel coordinate, typically from `projectWorldPoint`.
+     *
+     * Returns:
+     *   The color at `pixel` as `(red, green, blue)` in `[0, 255]`, or
+     *   `std::nullopt` if this view has no color image loaded or `pixel`
+     *   falls outside it.
+     */
+    [[nodiscard]] std::optional<Rgb> sampleColor(const Eigen::Vector2d& pixel) const;
+
+    /**
+     * @brief Computes this camera's optical center in world (board)
+     * coordinates.
+     *
+     * Returns:
+     *   The camera position `C` such that `X_camera = R * X_world + t`
+     *   maps `C` to the origin, i.e. `C = -R^T * t`.
+     */
+    [[nodiscard]] Eigen::Vector3d cameraOrigin() const;
+
   private:
     calibration::CameraModel camera_;
     calibration::FrameCalibrationResult frame_;
     SilhouetteMask mask_;
+    std::optional<ColorImage> color_;
 };
 
 } // namespace covoca::voxel_carving
