@@ -1,4 +1,4 @@
-#include "gsplat/calibration/ArucoCalibration.h"
+#include "covoca/calibration/ArucoCalibration.h"
 
 #include <algorithm>
 #include <cctype>
@@ -16,7 +16,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <spdlog/spdlog.h>
 
-namespace gs::calibration {
+namespace covoca::calibration {
 namespace fs = std::filesystem;
 
 namespace {
@@ -298,7 +298,8 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
                                      static_cast<float>(config.board.marker_separation_m.value()), dictionary);
 
     cv::aruco::DetectorParameters detectorParameters;
-    detectorParameters.cornerRefinementMethod = cornerRefinementMethodFromName(config.detector.corner_refinement.name());
+    detectorParameters.cornerRefinementMethod =
+        cornerRefinementMethodFromName(config.detector.corner_refinement.name());
     const cv::aruco::ArucoDetector detector(dictionary, detectorParameters);
 
     std::vector<DetectedView> views;
@@ -384,7 +385,7 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
             .detected_marker_count = static_cast<int>(views[i].markerIds.size()),
             .matched_corner_count = static_cast<int>(views[i].imagePoints.size()),
             .mean_reprojection_error_px = meanReprojectionError(views[i].objectPoints, views[i].imagePoints, rvecs[i],
-                                                                 tvecs[i], cameraMatrix, distCoeffs),
+                                                                tvecs[i], cameraMatrix, distCoeffs),
             .detected_ids = views[i].markerIds,
             .rvec_board_to_camera = cvVector3(rvecs[i]),
             .tvec_board_to_camera_m = translationEigen,
@@ -449,4 +450,4 @@ int writeCoordinateSystemVisualizations(const CalibrationResult& result, const s
     return written;
 }
 
-} // namespace gs::calibration
+} // namespace covoca::calibration

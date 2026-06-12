@@ -1,7 +1,6 @@
-# Gaussian Splatting Reconstruction
+# Covoca: Color Voxel Carving
 
-Voxel carving and 3D Gaussian Splatting experiments for calibrated multi-view
-captures.
+Color voxel carving experiments for calibrated multi-view captures.
 
 - Proposal: `docs/proposal/`
 - Tooling: `docs/development/tooling.md`
@@ -20,15 +19,14 @@ users can use `vcpkg.json`.
 
 ```bash
 cmake --preset debug
-cmake --build --preset debug-voxel-demo
-./build/debug/voxel_demo
+cmake --build --preset debug-aruco-calibrate
+./build/debug/aruco_calibrate --help
 ```
 
 Make targets:
 
 ```bash
 make project
-make run
 make release
 ```
 
@@ -37,7 +35,7 @@ make release
 Download the sample ArUco dataset:
 
 ```bash
-uv run --project gsplat_toolkit --python 3.14 download-aruco-sample
+uv run --project covoca_toolkit --python 3.14 download-aruco-sample
 ```
 
 Run calibration:
@@ -108,9 +106,9 @@ configs/              entry-point YAML configs
 docs/development/     tooling notes
 docs/proposal/        LaTeX proposal
 docs/specs/           implementation requirements
-gsplat_toolkit/       uv-managed Python helpers
-include/gsplat/       public C++ headers
-src/gsplat/           C++ implementations
+covoca_toolkit/       uv-managed Python helpers
+include/covoca/       public C++ headers
+src/covoca/           C++ implementations
 ```
 
 ## Pipeline
@@ -119,7 +117,6 @@ src/gsplat/           C++ implementations
 1. Estimate intrinsics and poses with OpenCV ArUco boards.
 1. Create foreground masks.
 1. Build an Open3D-comparable voxel-carving baseline.
-1. Train/evaluate Gaussian Splatting with `gsplat`.
 
 ## Dependencies
 

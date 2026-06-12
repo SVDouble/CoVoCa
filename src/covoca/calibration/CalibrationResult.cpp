@@ -1,4 +1,4 @@
-#include "gsplat/calibration/CalibrationResult.h"
+#include "covoca/calibration/CalibrationResult.h"
 
 #include <filesystem>
 #include <stdexcept>
@@ -6,9 +6,9 @@
 
 #include <rfl/yaml.hpp>
 
-#include "gsplat/config/ConfigIO.h"
+#include "covoca/config/ConfigIO.h"
 
-namespace gs::calibration {
+namespace covoca::calibration {
 namespace {
 
 void validateCalibrationResult(const CalibrationResult& result) {
@@ -44,9 +44,9 @@ void saveCalibrationResult(const std::filesystem::path& path, const CalibrationR
 }
 
 CalibrationResult loadCalibrationResult(const std::filesystem::path& path) {
-    auto result = gs::config::loadTypedConfig<CalibrationResult>(path, "calibration result");
+    auto result = covoca::config::loadTypedConfig<CalibrationResult>(path, "calibration result");
     validateCalibrationResult(result);
     return result;
 }
 
-} // namespace gs::calibration
+} // namespace covoca::calibration

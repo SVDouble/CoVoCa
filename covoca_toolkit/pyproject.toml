@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "gsplat-toolkit"
+name = "covoca-toolkit"
 version = "0.1.0"
 description = "Python helper toolkit for Gaussian Splatting data preparation and analysis."
 readme = "README.md"
@@ -11,7 +11,7 @@ requires-python = ">=3.14"
 dependencies = []
 
 [project.scripts]
-download-aruco-sample = "gsplat_toolkit.download_aruco_sample:main"
+download-aruco-sample = "covoca_toolkit.download_aruco_sample:main"
 
 [project.optional-dependencies]
 plot = [
@@ -26,7 +26,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/gsplat_toolkit"]
+packages = ["src/covoca_toolkit"]
 
 [tool.ruff]
 line-length = 120

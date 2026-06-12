@@ -1,13 +1,13 @@
-#include "gsplat/calibration/CalibrationConfig.h"
+#include "covoca/calibration/CalibrationConfig.h"
 
 #include <stdexcept>
 
-#include "gsplat/config/ConfigIO.h"
+#include "covoca/config/ConfigIO.h"
 
-namespace gs::calibration {
+namespace covoca::calibration {
 
 CalibrationConfig loadCalibrationConfig(const std::filesystem::path& path) {
-    auto config = gs::config::loadTypedConfig<CalibrationConfig>(path, "calibration config");
+    auto config = covoca::config::loadTypedConfig<CalibrationConfig>(path, "calibration config");
     validateCalibrationConfig(config);
     return config;
 }
@@ -27,4 +27,4 @@ void validateCalibrationConfig(const CalibrationConfig& config) {
     }
 }
 
-} // namespace gs::calibration
+} // namespace covoca::calibration

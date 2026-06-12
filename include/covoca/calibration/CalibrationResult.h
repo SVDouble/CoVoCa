@@ -6,10 +6,10 @@
 
 #include <Eigen/Dense>
 
-#include "gsplat/calibration/CalibrationConfig.h"
-#include "gsplat/config/EigenReflectors.h"
+#include "covoca/calibration/CalibrationConfig.h"
+#include "covoca/config/EigenReflectors.h"
 
-namespace gs::calibration {
+namespace covoca::calibration {
 
 using Vector3 = Eigen::Vector3d;
 using VectorX = Eigen::VectorXd;
@@ -84,4 +84,4 @@ void saveCalibrationResult(const std::filesystem::path& path, const CalibrationR
  */
 CalibrationResult loadCalibrationResult(const std::filesystem::path& path);
 
-} // namespace gs::calibration
+} // namespace covoca::calibration

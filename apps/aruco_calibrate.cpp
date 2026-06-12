@@ -4,18 +4,18 @@
 #include <CLI/CLI.hpp>
 #include <spdlog/spdlog.h>
 
-#include "gsplat/calibration/ArucoCalibration.h"
-#include "gsplat/calibration/CalibrationConfig.h"
-#include "gsplat/calibration/CalibrationResult.h"
+#include "covoca/calibration/ArucoCalibration.h"
+#include "covoca/calibration/CalibrationConfig.h"
+#include "covoca/calibration/CalibrationResult.h"
 
 namespace fs = std::filesystem;
 
 namespace {
 
 int calibrate(const fs::path& configPath) {
-    const auto config = gs::calibration::loadCalibrationConfig(configPath);
-    const auto result = gs::calibration::runArucoCalibration(config, configPath);
-    gs::calibration::saveCalibrationResult(config.paths.result, result);
+    const auto config = covoca::calibration::loadCalibrationConfig(configPath);
+    const auto result = covoca::calibration::runArucoCalibration(config, configPath);
+    covoca::calibration::saveCalibrationResult(config.paths.result, result);
 
     spdlog::info("Wrote calibration result to {}", config.paths.result.string());
     spdlog::info("Accepted {} / {} images, RMS reprojection error: {} px", result.source.accepted_frame_count.value(),
@@ -24,8 +24,8 @@ int calibrate(const fs::path& configPath) {
 }
 
 int visualize(const fs::path& resultPath, const fs::path& outputDir, double axisLengthMeters) {
-    const auto result = gs::calibration::loadCalibrationResult(resultPath);
-    const int written = gs::calibration::writeCoordinateSystemVisualizations(result, outputDir, axisLengthMeters);
+    const auto result = covoca::calibration::loadCalibrationResult(resultPath);
+    const int written = covoca::calibration::writeCoordinateSystemVisualizations(result, outputDir, axisLengthMeters);
     spdlog::info("Wrote {} coordinate-system visualizations to {}", written, outputDir.string());
     return 0;
 }

@@ -1,6 +1,6 @@
 PROJECT_PRESET ?= debug
-PROJECT_BUILD_PRESET ?= debug-voxel-demo
-PYTHON_TOOLS_DIR := gsplat_toolkit
+PROJECT_BUILD_PRESET ?= debug-aruco-calibrate
+PYTHON_TOOLS_DIR := covoca_toolkit
 CALIBRATION_CONFIG ?= configs/calibration/aruco_sample.yaml
 CALIBRATION_RESULT ?= data/sample_aruco/calibration_result.yaml
 CALIBRATION_VISUALIZATION_DIR ?= data/sample_aruco/calibration_axes
@@ -25,7 +25,7 @@ DOC_ENV := \
 	BIBINPUTS="$(abspath $(DOC_DIR))//:" \
 	BSTINPUTS="$(abspath $(DOC_DIR))//:"
 
-.PHONY: all project configure build release run calibration format format-check lint static-analysis sanitize memcheck quality python-format python-format-check python-lint python-check pre-commit pre-commit-install python-tools-build download-sample-data calibrate-sample visualize-calibration docs clean clean-project clean-docs help
+.PHONY: all project configure build release calibration format format-check lint static-analysis sanitize memcheck quality python-format python-format-check python-lint python-check pre-commit pre-commit-install python-tools-build download-sample-data calibrate-sample visualize-calibration docs clean clean-project clean-docs help
 
 all: project docs
 
@@ -39,10 +39,7 @@ build: configure
 
 release:
 	cmake --preset release
-	cmake --build --preset release-voxel-demo
-
-run: build
-	./build/debug/voxel_demo
+	cmake --build --preset release-aruco-calibrate
 
 calibration: configure
 	cmake --build --preset $(PROJECT_PRESET) --target aruco_calibrate
@@ -68,11 +65,9 @@ static-analysis:
 sanitize:
 	cmake --preset debug-asan
 	cmake --build --preset debug-asan
-	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ./build/debug-asan/voxel_demo
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ./build/debug-asan/aruco_calibrate --help >/dev/null
 
 memcheck: build calibration
-	valgrind --leak-check=full --show-leak-kinds=definite,indirect --error-exitcode=1 ./build/debug/voxel_demo
 	valgrind --leak-check=full --show-leak-kinds=definite,indirect --error-exitcode=1 ./build/debug/aruco_calibrate --help >/dev/null
 
 quality: format-check lint static-analysis python-check sanitize memcheck
@@ -137,7 +132,6 @@ help:
 	@echo "Targets:"
 	@echo "  make project       Configure and build the default debug project target"
 	@echo "  make release       Configure and build the release project target"
-	@echo "  make run           Build and run ./build/debug/voxel_demo"
 	@echo "  make calibration   Build the ArUco calibration executable"
 	@echo "  make format        Format C++ sources with clang-format"
 	@echo "  make format-check  Verify C++ formatting"
@@ -153,7 +147,7 @@ help:
 	@echo "  make pre-commit-install"
 	@echo "                     Install formatting hooks into .git/hooks"
 	@echo "  make python-tools-build"
-	@echo "                     Build the gsplat-toolkit Python package with uv"
+	@echo "                     Build the covoca-toolkit Python package with uv"
 	@echo "  make download-sample-data"
 	@echo "                     Download public ArUco sample images into data/sample_aruco"
 	@echo "  make calibrate-sample"

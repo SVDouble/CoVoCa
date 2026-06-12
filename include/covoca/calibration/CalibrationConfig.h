@@ -4,17 +4,17 @@
 #include <string>
 
 #include <rfl/Literal.hpp>
-#include <rfl/Validator.hpp>
-#include <rfl/comparisons.hpp>
 
-namespace gs::calibration {
+#include "covoca/config/Validators.h"
+
+namespace covoca::calibration {
 
 using CalibrationSchema = rfl::Literal<"gs.calibration.config.v1">;
 using BoardType = rfl::Literal<"aruco_grid">;
 using CornerRefinement = rfl::Literal<"none", "subpix", "contour">;
-using PositiveInt = rfl::Validator<int, rfl::ExclusiveMinimum<0>>;
-using PositiveDouble = rfl::Validator<double, rfl::ExclusiveMinimum<0>>;
-using NonNegativeDouble = rfl::Validator<double, rfl::Minimum<0>>;
+using covoca::config::NonNegativeDouble;
+using covoca::config::PositiveDouble;
+using covoca::config::PositiveInt;
 
 /// Filesystem inputs and outputs for one calibration run.
 struct CalibrationPaths {
@@ -75,4 +75,4 @@ CalibrationConfig loadCalibrationConfig(const std::filesystem::path& path);
  */
 void validateCalibrationConfig(const CalibrationConfig& config);
 
-} // namespace gs::calibration
+} // namespace covoca::calibration

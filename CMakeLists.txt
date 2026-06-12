@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(GaussianSplatting LANGUAGES CXX)
+project(Covoca LANGUAGES CXX)
 
 include(FetchContent)
 
@@ -8,8 +8,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(GSPLAT_ENABLE_WARNINGS "Enable project compiler warnings." ON)
-option(GSPLAT_ENABLE_SANITIZERS "Enable AddressSanitizer, LeakSanitizer, and UndefinedBehaviorSanitizer." OFF)
+option(COVOCA_ENABLE_WARNINGS "Enable project compiler warnings." ON)
+option(COVOCA_ENABLE_SANITIZERS "Enable AddressSanitizer, LeakSanitizer, and UndefinedBehaviorSanitizer." OFF)
 
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS
@@ -50,95 +50,72 @@ if(NOT TARGET reflectcpp::reflectcpp)
 endif()
 
 if(TARGET reflectcpp)
-    get_target_property(GSPLAT_REFLECTCPP_INCLUDE_DIRS reflectcpp INTERFACE_INCLUDE_DIRECTORIES)
-    if(GSPLAT_REFLECTCPP_INCLUDE_DIRS)
+    get_target_property(COVOCA_REFLECTCPP_INCLUDE_DIRS reflectcpp INTERFACE_INCLUDE_DIRECTORIES)
+    if(COVOCA_REFLECTCPP_INCLUDE_DIRS)
         set_target_properties(reflectcpp PROPERTIES
-            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${GSPLAT_REFLECTCPP_INCLUDE_DIRS}"
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${COVOCA_REFLECTCPP_INCLUDE_DIRS}"
         )
     endif()
 elseif(TARGET reflectcpp::reflectcpp)
-    get_target_property(GSPLAT_REFLECTCPP_INCLUDE_DIRS reflectcpp::reflectcpp INTERFACE_INCLUDE_DIRECTORIES)
-    if(GSPLAT_REFLECTCPP_INCLUDE_DIRS)
+    get_target_property(COVOCA_REFLECTCPP_INCLUDE_DIRS reflectcpp::reflectcpp INTERFACE_INCLUDE_DIRECTORIES)
+    if(COVOCA_REFLECTCPP_INCLUDE_DIRS)
         set_target_properties(reflectcpp::reflectcpp PROPERTIES
-            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${GSPLAT_REFLECTCPP_INCLUDE_DIRS}"
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${COVOCA_REFLECTCPP_INCLUDE_DIRS}"
         )
     endif()
 endif()
 
-add_library(gsplat_project_options INTERFACE)
+add_library(covoca_project_options INTERFACE)
 
-if(GSPLAT_ENABLE_WARNINGS)
-    target_compile_options(gsplat_project_options INTERFACE
+if(COVOCA_ENABLE_WARNINGS)
+    target_compile_options(covoca_project_options INTERFACE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra;-Wpedantic;-Wshadow>
         $<$<CXX_COMPILER_ID:MSVC>:/W4>
     )
 endif()
 
-if(GSPLAT_ENABLE_SANITIZERS)
+if(COVOCA_ENABLE_SANITIZERS)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
-        target_compile_options(gsplat_project_options INTERFACE
+        target_compile_options(covoca_project_options INTERFACE
             -fsanitize=address,undefined
             -fno-omit-frame-pointer
         )
-        target_link_options(gsplat_project_options INTERFACE
+        target_link_options(covoca_project_options INTERFACE
             -fsanitize=address,undefined
         )
     else()
-        message(WARNING "GSPLAT_ENABLE_SANITIZERS is only configured for GCC/Clang-style compilers.")
+        message(WARNING "COVOCA_ENABLE_SANITIZERS is only configured for GCC/Clang-style compilers.")
     endif()
 endif()
 
-add_library(gsplat_config INTERFACE)
+add_library(covoca_config INTERFACE)
 
-target_include_directories(gsplat_config INTERFACE
+target_include_directories(covoca_config INTERFACE
     include
 )
 
-target_link_libraries(gsplat_config INTERFACE
+target_link_libraries(covoca_config INTERFACE
     reflectcpp::reflectcpp
-    gsplat_project_options
+    covoca_project_options
 )
 
-add_library(gsplat_voxel
-    src/gsplat/voxel/VoxelGrid.cpp
+add_library(covoca_calibration
+    src/covoca/calibration/ArucoCalibration.cpp
+    src/covoca/calibration/CalibrationConfig.cpp
+    src/covoca/calibration/CalibrationResult.cpp
 )
 
-target_include_directories(gsplat_voxel PUBLIC
+target_include_directories(covoca_calibration PUBLIC
     include
 )
 
-target_link_libraries(gsplat_voxel PUBLIC
-    Eigen3::Eigen
-    gsplat_project_options
-)
-
-add_executable(voxel_demo
-    apps/voxel_grid_demo.cpp
-)
-
-target_link_libraries(voxel_demo PRIVATE
-    gsplat_voxel
-    gsplat_project_options
-    spdlog::spdlog
-)
-
-add_library(gsplat_calibration
-    src/gsplat/calibration/ArucoCalibration.cpp
-    src/gsplat/calibration/CalibrationConfig.cpp
-    src/gsplat/calibration/CalibrationResult.cpp
-)
-
-target_include_directories(gsplat_calibration PUBLIC
-    include
-)
-
-target_link_libraries(gsplat_calibration
+target_link_libraries(covoca_calibration
     PUBLIC
         Eigen3::Eigen
-        gsplat_config
+        covoca_config
     PRIVATE
         ${OpenCV_LIBS}
-        gsplat_project_options
+        covoca_project_options
         spdlog::spdlog
 )
 
@@ -148,7 +125,7 @@ add_executable(aruco_calibrate
 
 target_link_libraries(aruco_calibrate PRIVATE
     CLI11::CLI11
-    gsplat_calibration
-    gsplat_project_options
+    covoca_calibration
+    covoca_project_options
     spdlog::spdlog
 )

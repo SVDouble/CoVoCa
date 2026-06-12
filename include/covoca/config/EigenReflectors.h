@@ -15,9 +15,13 @@ namespace rfl {
 template <> struct Reflector<Eigen::Vector3d> {
     using ReflType = std::array<double, 3>;
 
-    static Eigen::Vector3d to(const ReflType& value) noexcept { return Eigen::Map<const Eigen::Vector3d>(value.data()); }
+    static Eigen::Vector3d to(const ReflType& value) noexcept {
+        return Eigen::Map<const Eigen::Vector3d>(value.data());
+    }
 
-    static ReflType from(const Eigen::Vector3d& value) { return {value.x(), value.y(), value.z()}; }
+    static ReflType from(const Eigen::Vector3d& value) {
+        return {value.x(), value.y(), value.z()};
+    }
 };
 
 template <> struct Reflector<Eigen::VectorXd> {

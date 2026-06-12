@@ -2,10 +2,10 @@
 
 #include <filesystem>
 
-#include "gsplat/calibration/CalibrationConfig.h"
-#include "gsplat/calibration/CalibrationResult.h"
+#include "covoca/calibration/CalibrationConfig.h"
+#include "covoca/calibration/CalibrationResult.h"
 
-namespace gs::calibration {
+namespace covoca::calibration {
 
 /**
  * @brief Calibrates intrinsics and board-to-camera poses.
@@ -33,4 +33,4 @@ CalibrationResult runArucoCalibration(const CalibrationConfig& config, const std
 int writeCoordinateSystemVisualizations(const CalibrationResult& result, const std::filesystem::path& outputDir,
                                         double axisLengthMeters);
 
-} // namespace gs::calibration
+} // namespace covoca::calibration

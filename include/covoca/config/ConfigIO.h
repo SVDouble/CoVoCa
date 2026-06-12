@@ -10,7 +10,7 @@
 #include <rfl/json.hpp>
 #include <rfl/yaml.hpp>
 
-namespace gs::config {
+namespace covoca::config {
 
 inline std::string lowerExtension(const std::filesystem::path& path) {
     std::string extension = path.extension().string();
@@ -40,4 +40,4 @@ template <typename T> T loadTypedConfig(const std::filesystem::path& path, const
     throw std::runtime_error("unsupported config extension for " + path.string() + " (expected .yaml, .yml, or .json)");
 }
 
-} // namespace gs::config
+} // namespace covoca::config

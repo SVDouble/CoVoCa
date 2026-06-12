@@ -24,7 +24,7 @@
       "inherits": "debug",
       "binaryDir": "${sourceDir}/build/debug-asan",
       "cacheVariables": {
-        "GSPLAT_ENABLE_SANITIZERS": "ON"
+        "COVOCA_ENABLE_SANITIZERS": "ON"
       }
     },
     {
@@ -76,14 +76,6 @@
       "configurePreset": "debug"
     },
     {
-      "name": "debug-voxel-demo",
-      "displayName": "Debug: voxel_demo",
-      "configurePreset": "debug",
-      "targets": [
-        "voxel_demo"
-      ]
-    },
-    {
       "name": "debug-asan",
       "displayName": "Debug + sanitizers",
       "configurePreset": "debug-asan"
@@ -110,14 +102,6 @@
       "name": "release",
       "displayName": "Release",
       "configurePreset": "release"
-    },
-    {
-      "name": "release-voxel-demo",
-      "displayName": "Release: voxel_demo",
-      "configurePreset": "release",
-      "targets": [
-        "voxel_demo"
-      ]
     },
     {
       "name": "release-vcpkg",

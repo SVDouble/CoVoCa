@@ -12,7 +12,7 @@ from pathlib import Path
 DEFAULT_REPO = "abhishekpadalkar/camera_calibration"
 DEFAULT_REF = "master"
 DEFAULT_OUTPUT = Path("data/sample_aruco")
-USER_AGENT = "GaussianSplatting-calibration-data-downloader"
+USER_AGENT = "Covoca-calibration-data-downloader"
 
 
 def request_url(url: str) -> urllib.request.Request:

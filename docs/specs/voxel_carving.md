@@ -304,4 +304,4 @@ Use `gsplat` for the Gaussian Splatting benchmark:
 1. Add `VoxelCarver`.
 1. Add PLY point export.
 1. Add `voxel_carve` CLI.
-1. Add Open3D benchmark helper in `gsplat_toolkit`.
+1. Add Open3D benchmark helper in `covoca_toolkit`.
