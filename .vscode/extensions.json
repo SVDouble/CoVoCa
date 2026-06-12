@@ -1,5 +1,8 @@
 {
   "recommendations": [
+    "EditorConfig.EditorConfig",
+    "charliermarsh.ruff",
+    "ms-python.python",
     "ms-vscode.cmake-tools",
     "llvm-vs-code-extensions.vscode-clangd"
   ]

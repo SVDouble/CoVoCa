@@ -1,5 +1,7 @@
 PROJECT_PRESET ?= debug
 PROJECT_BUILD_PRESET ?= debug-voxel-demo
+CXX_FORMAT_FILES := $(shell find apps include src -type f \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null | sort)
+CXX_LINT_FILES := $(shell find apps src -type f -name '*.cpp' 2>/dev/null | sort)
 
 DOC_DIR := docs/proposal
 DOC_MAIN := main
@@ -18,7 +20,7 @@ DOC_ENV := \
 	BIBINPUTS="$(abspath $(DOC_DIR))//:" \
 	BSTINPUTS="$(abspath $(DOC_DIR))//:"
 
-.PHONY: all project configure build release run docs clean clean-project clean-docs help
+.PHONY: all project configure build release run format format-check lint static-analysis sanitize memcheck quality docs clean clean-project clean-docs help
 
 all: project docs
 
@@ -36,6 +38,34 @@ release:
 
 run: build
 	./build/debug/voxel_demo
+
+format:
+	clang-format -i $(CXX_FORMAT_FILES)
+
+format-check:
+	clang-format --dry-run --Werror $(CXX_FORMAT_FILES)
+
+lint:
+	cmake --preset debug
+	clang-tidy --quiet -p build/debug $(CXX_LINT_FILES)
+
+static-analysis:
+	cmake --preset debug
+	cppcheck --project=build/debug/compile_commands.json \
+		--enable=warning,style,performance,portability \
+		--inline-suppr \
+		--suppress=missingIncludeSystem \
+		--error-exitcode=1
+
+sanitize:
+	cmake --preset debug-asan
+	cmake --build --preset debug-asan
+	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ./build/debug-asan/voxel_demo
+
+memcheck: build
+	valgrind --leak-check=full --show-leak-kinds=definite,indirect --error-exitcode=1 ./build/debug/voxel_demo
+
+quality: format-check lint static-analysis sanitize memcheck
 
 docs: $(DOC_PDF)
 
@@ -59,7 +89,7 @@ $(DOC_PDF): $(DOC_SOURCES)
 clean: clean-project clean-docs
 
 clean-project:
-	rm -rf build/debug build/release
+	rm -rf build/debug build/debug-asan build/debug-tidy build/debug-vcpkg build/release build/release-vcpkg
 
 clean-docs:
 	rm -rf build/docs
@@ -69,6 +99,14 @@ help:
 	@echo "  make project       Configure and build the default debug project target"
 	@echo "  make release       Configure and build the release project target"
 	@echo "  make run           Build and run ./build/debug/voxel_demo"
+	@echo "  make format        Format C++ sources with clang-format"
+	@echo "  make format-check  Verify C++ formatting"
+	@echo "  make lint          Run clang-tidy over C++ sources"
+	@echo "  make static-analysis"
+	@echo "                     Run cppcheck over the CMake compile database"
+	@echo "  make sanitize      Build and smoke-test with ASan/LSan/UBSan"
+	@echo "  make memcheck      Run Valgrind leak checks"
+	@echo "  make quality       Run format, lint, static analysis, sanitizers, and memcheck"
 	@echo "  make docs          Build the proposal PDF at $(DOC_PDF)"
 	@echo "  make all           Build project and docs"
 	@echo "  make clean         Remove project and docs build outputs"

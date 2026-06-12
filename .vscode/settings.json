@@ -1,8 +1,18 @@
 {
   "cmake.useCMakePresets": "always",
   "cmake.configureOnOpen": true,
+  "editor.rulers": [
+    120
+  ],
+  "files.trimTrailingWhitespace": true,
   "clangd.path": "/usr/bin/clangd",
   "clangd.arguments": [
     "--query-driver=/usr/bin/g++"
-  ]
+  ],
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
 }

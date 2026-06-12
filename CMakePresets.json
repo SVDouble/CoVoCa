@@ -18,6 +18,36 @@
       }
     },
     {
+      "name": "debug-asan",
+      "displayName": "Debug + sanitizers",
+      "description": "Debug build with AddressSanitizer, LeakSanitizer, and UndefinedBehaviorSanitizer.",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/debug-asan",
+      "cacheVariables": {
+        "GSPLAT_ENABLE_SANITIZERS": "ON"
+      }
+    },
+    {
+      "name": "debug-tidy",
+      "displayName": "Debug + clang-tidy",
+      "description": "Debug build that runs clang-tidy during compilation.",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/debug-tidy",
+      "cacheVariables": {
+        "CMAKE_CXX_CLANG_TIDY": "clang-tidy;--quiet"
+      }
+    },
+    {
+      "name": "debug-vcpkg",
+      "displayName": "Debug + vcpkg",
+      "description": "Debug build using the vcpkg manifest. Requires VCPKG_ROOT.",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/debug-vcpkg",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      }
+    },
+    {
       "name": "release",
       "displayName": "Release",
       "description": "Optimized release build with compile commands for editor integration.",
@@ -26,6 +56,16 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "release-vcpkg",
+      "displayName": "Release + vcpkg",
+      "description": "Release build using the vcpkg manifest. Requires VCPKG_ROOT.",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build/release-vcpkg",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       }
     }
   ],
@@ -44,6 +84,21 @@
       ]
     },
     {
+      "name": "debug-asan",
+      "displayName": "Debug + sanitizers",
+      "configurePreset": "debug-asan"
+    },
+    {
+      "name": "debug-tidy",
+      "displayName": "Debug + clang-tidy",
+      "configurePreset": "debug-tidy"
+    },
+    {
+      "name": "debug-vcpkg",
+      "displayName": "Debug + vcpkg",
+      "configurePreset": "debug-vcpkg"
+    },
+    {
       "name": "release",
       "displayName": "Release",
       "configurePreset": "release"
@@ -55,6 +110,11 @@
       "targets": [
         "voxel_demo"
       ]
+    },
+    {
+      "name": "release-vcpkg",
+      "displayName": "Release + vcpkg",
+      "configurePreset": "release-vcpkg"
     }
   ]
 }

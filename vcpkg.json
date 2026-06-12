@@ -1,0 +1,25 @@
+{
+  "name": "gaussian-splatting",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "cli11",
+    "eigen3",
+    {
+      "name": "opencv4",
+      "features": [
+        "contrib",
+        "jpeg",
+        "png",
+        "tiff"
+      ]
+    },
+    {
+      "name": "reflectcpp",
+      "features": [
+        "yaml"
+      ]
+    },
+    "spdlog",
+    "yaml-cpp"
+  ]
+}

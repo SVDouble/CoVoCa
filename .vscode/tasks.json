@@ -43,6 +43,66 @@
       "problemMatcher": []
     },
     {
+      "label": "Make: format-check",
+      "type": "shell",
+      "command": "make",
+      "args": [
+        "format-check"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Make: lint",
+      "type": "shell",
+      "command": "make",
+      "args": [
+        "lint"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Make: sanitize",
+      "type": "shell",
+      "command": "make",
+      "args": [
+        "sanitize"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Make: memcheck",
+      "type": "shell",
+      "command": "make",
+      "args": [
+        "memcheck"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Make: quality",
+      "type": "shell",
+      "command": "make",
+      "args": [
+        "quality"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
       "label": "Make: docs",
       "type": "shell",
       "command": "make",
