@@ -7,15 +7,25 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Eigen3 REQUIRED)
+find_package(spdlog REQUIRED)
 
-add_executable(main
-    src/main.cpp
+add_library(gsplat_voxel
+    src/gsplat/voxel/VoxelGrid.cpp
 )
 
-target_include_directories(main PRIVATE
+target_include_directories(gsplat_voxel PUBLIC
     include
 )
 
-target_link_libraries(main PRIVATE
+target_link_libraries(gsplat_voxel PUBLIC
     Eigen3::Eigen
+)
+
+add_executable(voxel_demo
+    apps/voxel_grid_demo.cpp
+)
+
+target_link_libraries(voxel_demo PRIVATE
+    gsplat_voxel
+    spdlog::spdlog
 )

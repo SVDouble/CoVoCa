@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
     "minor": 20,
@@ -36,11 +36,11 @@
       "configurePreset": "debug"
     },
     {
-      "name": "debug-main",
-      "displayName": "Debug: main",
+      "name": "debug-voxel-demo",
+      "displayName": "Debug: voxel_demo",
       "configurePreset": "debug",
       "targets": [
-        "main"
+        "voxel_demo"
       ]
     },
     {
@@ -49,11 +49,11 @@
       "configurePreset": "release"
     },
     {
-      "name": "release-main",
-      "displayName": "Release: main",
+      "name": "release-voxel-demo",
+      "displayName": "Release: voxel_demo",
       "configurePreset": "release",
       "targets": [
-        "main"
+        "voxel_demo"
       ]
     }
   ]

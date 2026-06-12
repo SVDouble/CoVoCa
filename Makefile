@@ -1,5 +1,5 @@
 PROJECT_PRESET ?= debug
-PROJECT_BUILD_PRESET ?= debug-main
+PROJECT_BUILD_PRESET ?= debug-voxel-demo
 
 DOC_DIR := docs/proposal
 DOC_MAIN := main
@@ -32,10 +32,10 @@ build: configure
 
 release:
 	cmake --preset release
-	cmake --build --preset release-main
+	cmake --build --preset release-voxel-demo
 
 run: build
-	./build/debug/main
+	./build/debug/voxel_demo
 
 docs: $(DOC_PDF)
 
@@ -68,7 +68,7 @@ help:
 	@echo "Targets:"
 	@echo "  make project       Configure and build the default debug project target"
 	@echo "  make release       Configure and build the release project target"
-	@echo "  make run           Build and run ./build/debug/main"
+	@echo "  make run           Build and run ./build/debug/voxel_demo"
 	@echo "  make docs          Build the proposal PDF at $(DOC_PDF)"
 	@echo "  make all           Build project and docs"
 	@echo "  make clean         Remove project and docs build outputs"
