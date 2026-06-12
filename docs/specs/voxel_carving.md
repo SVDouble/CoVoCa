@@ -90,16 +90,16 @@ optional after the reference baseline and benchmarks work.
 
 ## Config
 
-Add `configs/voxel_carving/sample.yaml`:
+Add `datasets/aruco_sample/voxel_carving.yaml`:
 
 ```yaml
 schema: gs.voxel_carving.config.v1
 name: sample_visual_hull
 
 paths:
-  calibration_result: data/sample_aruco/calibration_result.yaml
-  masks_dir: data/sample_aruco/masks
-  output_dir: outputs/voxel_carving/sample
+  calibration_result: local/datasets/aruco_sample/calibration_result.yaml
+  masks_dir: local/datasets/aruco_sample/masks
+  output_dir: local/outputs/aruco_sample
 
 volume:
   min_m: [-0.15, -0.15, 0.0]
@@ -113,11 +113,9 @@ carving:
   min_required_views: 1
 
 export:
-  occupied_points_ply: visual_hull_points.ply
-  occupied_mesh_ply: visual_hull_voxels.ply
-
-benchmark:
-  open3d_enabled: true
+  format: ply
+  occupied_points_file: visual_hull_points.ply
+  occupied_mesh_file: visual_hull_voxels.ply
 ```
 
 Use the same reflect-cpp config pattern as calibration:
@@ -256,9 +254,9 @@ void writeOccupiedCubeMeshPly(const std::filesystem::path& path, const VoxelVolu
 ### CLI
 
 ```text
-voxel_carve run --config configs/voxel_carving/sample.yaml
-voxel_carve inspect-config --config configs/voxel_carving/sample.yaml
-voxel_carve benchmark --config configs/voxel_carving/sample.yaml
+voxel_carve run --config datasets/aruco_sample/voxel_carving.yaml
+voxel_carve inspect-config --config datasets/aruco_sample/voxel_carving.yaml
+voxel_carve benchmark --config datasets/aruco_sample/voxel_carving.yaml
 ```
 
 ## Benchmarks

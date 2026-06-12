@@ -30,10 +30,11 @@ int run(const fs::path& configPath) {
     const covoca::voxel_carving::VoxelCarver carver(config);
     const auto result = carver.run(views);
 
-    const fs::path pointsPath = config.paths.output_dir / config.export_config.get().occupied_points_ply;
-    const fs::path meshPath = config.paths.output_dir / config.export_config.get().occupied_mesh_ply;
-    covoca::voxel_carving::writeOccupiedPointsPly(pointsPath, result.volume);
-    covoca::voxel_carving::writeOccupiedCubeMeshPly(meshPath, result.volume);
+    const auto& exportConfig = config.export_config.get();
+    const fs::path pointsPath = config.paths.output_dir / exportConfig.occupied_points_file;
+    const fs::path meshPath = config.paths.output_dir / exportConfig.occupied_mesh_file;
+    covoca::voxel_carving::writeOccupiedPoints(pointsPath, result.volume, exportConfig.format);
+    covoca::voxel_carving::writeOccupiedCubeMesh(meshPath, result.volume, exportConfig.format);
 
     spdlog::info("Input voxels: {}, occupied: {}, carved: {}, runtime: {} s", result.stats.inputVoxelCount,
                  result.stats.occupiedVoxelCount, result.stats.carvedVoxelCount, result.stats.elapsedSeconds);
@@ -45,7 +46,7 @@ int runCli(int argc, char** argv) {
     CLI::App app("Color voxel carving from calibrated multi-view silhouettes.");
     app.require_subcommand(1);
     app.footer("Example:\n"
-               "  voxel_carve run --config configs/voxel_carving/sample.yaml");
+               "  voxel_carve run --config datasets/aruco_sample/voxel_carving.yaml");
 
     fs::path configPath;
     CLI::App* runCommand = app.add_subcommand("run", "Carve a voxel volume and export PLY results.");

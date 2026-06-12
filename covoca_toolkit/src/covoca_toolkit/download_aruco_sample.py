@@ -11,7 +11,7 @@ from pathlib import Path
 
 DEFAULT_REPO = "abhishekpadalkar/camera_calibration"
 DEFAULT_REF = "master"
-DEFAULT_OUTPUT = Path("data/sample_aruco")
+DEFAULT_OUTPUT = Path("local/datasets/aruco_sample")
 USER_AGENT = "Covoca-calibration-data-downloader"
 
 
@@ -128,7 +128,7 @@ board:
     print(f"Dataset ready at {args.output}")
     print(f"Images: {len(image_entries)} ({downloaded} downloaded, {len(image_entries) - downloaded} already present)")
     print("Run:")
-    print("  ./build/debug/aruco_calibrate calibrate --config configs/calibration/aruco_sample.yaml")
+    print("  ./build/debug/aruco_calibrate calibrate --config datasets/aruco_sample/calibration.yaml")
     return 0
 
 

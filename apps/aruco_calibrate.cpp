@@ -34,9 +34,9 @@ int runCli(int argc, char** argv) {
     CLI::App app("Estimate and inspect ArUco GridBoard camera calibration.");
     app.require_subcommand(1);
     app.footer("Examples:\n"
-               "  aruco_calibrate calibrate --config configs/calibration/aruco_sample.yaml\n"
-               "  aruco_calibrate visualize --result data/sample_aruco/calibration_result.yaml "
-               "--output-dir data/sample_aruco/calibration_axes --axis-length-m 0.05625");
+               "  aruco_calibrate calibrate --config datasets/aruco_sample/calibration.yaml\n"
+               "  aruco_calibrate visualize --result local/datasets/aruco_sample/calibration_result.yaml "
+               "--output-dir local/datasets/aruco_sample/calibration_axes --axis-length-m 0.05625");
 
     fs::path configPath;
     CLI::App* calibrateCommand = app.add_subcommand("calibrate", "Estimate intrinsics and board-to-camera extrinsics.");

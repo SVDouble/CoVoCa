@@ -20,7 +20,7 @@ users can use `vcpkg.json`.
 ```bash
 cmake --preset debug
 cmake --build --preset debug-voxel-carve
-./build/debug/voxel_carve run --config configs/voxel_carving/sample.yaml
+./build/debug/voxel_carve run --config datasets/aruco_sample/voxel_carving.yaml
 ```
 
 Make targets:
@@ -44,26 +44,26 @@ Run calibration:
 ```bash
 cmake --preset debug
 cmake --build --preset debug-aruco-calibrate
-./build/debug/aruco_calibrate calibrate --config configs/calibration/aruco_sample.yaml
+./build/debug/aruco_calibrate calibrate --config datasets/aruco_sample/calibration.yaml
 ```
 
 Result:
 
 ```text
-data/sample_aruco/calibration_result.yaml
+local/datasets/aruco_sample/calibration_result.yaml
 ```
 
 Draw coordinate axes:
 
 ```bash
-./build/debug/aruco_calibrate visualize --result data/sample_aruco/calibration_result.yaml --output-dir data/sample_aruco/calibration_axes --axis-length-m 0.05625
+./build/debug/aruco_calibrate visualize --result local/datasets/aruco_sample/calibration_result.yaml --output-dir local/datasets/aruco_sample/calibration_axes --axis-length-m 0.05625
 ```
 
 OpenCV GridBoard coordinates lie in the board plane. Board `+Z` is the board
 normal. Camera `+Z` points forward along the optical axis. Results store
 `board_to_camera`, mapping board/world points into camera coordinates.
 
-For your own capture, copy `configs/calibration/aruco_sample.yaml` and edit
+For your own capture, copy `datasets/aruco_sample/calibration.yaml` and edit
 paths plus board geometry.
 
 Make targets:
@@ -103,14 +103,22 @@ make docs
 
 ```text
 apps/                 C++ executables
-configs/              entry-point YAML configs
+datasets/             dataset descriptions + entry-point YAML configs
 docs/development/     tooling notes
 docs/proposal/        LaTeX proposal
 docs/specs/           implementation requirements
 covoca_toolkit/       uv-managed Python helpers
 include/covoca/       public C++ headers
 src/covoca/           C++ implementations
+local/                downloaded datasets + pipeline outputs (gitignored)
 ```
+
+## Datasets
+
+See [`datasets/README.md`](datasets/README.md). Each dataset has a
+`uv run --project covoca_toolkit` download command and one or more configs
+under `datasets/<name>/`; downloaded files and pipeline outputs go to
+`local/datasets/<name>/` and `local/outputs/<name>/`.
 
 ## Pipeline
 

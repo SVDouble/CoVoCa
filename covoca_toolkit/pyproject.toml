@@ -8,10 +8,16 @@ version = "0.1.0"
 description = "Python helper toolkit for Gaussian Splatting data preparation and analysis."
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "numpy>=2.0",
+    "pyyaml>=6.0",
+    "pillow>=10.0",
+]
 
 [project.scripts]
 download-aruco-sample = "covoca_toolkit.download_aruco_sample:main"
+download-dino-sample = "covoca_toolkit.download_dino_sample:main"
+visualize-voxel-carving = "covoca_toolkit.visualize_voxel_carving:main"
 
 [project.optional-dependencies]
 plot = [

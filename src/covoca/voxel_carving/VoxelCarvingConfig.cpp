@@ -31,11 +31,11 @@ void validateVoxelCarvingConfig(const VoxelCarvingConfig& config) {
     if (config.carving.foreground_threshold < 0 || config.carving.foreground_threshold > 255) {
         throw std::runtime_error("config field carving.foreground_threshold must be in [0, 255]");
     }
-    if (config.export_config.get().occupied_points_ply.empty()) {
-        throw std::runtime_error("config field must not be empty: export.occupied_points_ply");
+    if (config.export_config.get().occupied_points_file.empty()) {
+        throw std::runtime_error("config field must not be empty: export.occupied_points_file");
     }
-    if (config.export_config.get().occupied_mesh_ply.empty()) {
-        throw std::runtime_error("config field must not be empty: export.occupied_mesh_ply");
+    if (config.export_config.get().occupied_mesh_file.empty()) {
+        throw std::runtime_error("config field must not be empty: export.occupied_mesh_file");
     }
 }
 

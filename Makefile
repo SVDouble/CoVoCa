@@ -1,11 +1,11 @@
 PROJECT_PRESET ?= debug
 PROJECT_BUILD_PRESET ?= debug-voxel-carve
 PYTHON_TOOLS_DIR := covoca_toolkit
-CALIBRATION_CONFIG ?= configs/calibration/aruco_sample.yaml
-CALIBRATION_RESULT ?= data/sample_aruco/calibration_result.yaml
-CALIBRATION_VISUALIZATION_DIR ?= data/sample_aruco/calibration_axes
+CALIBRATION_CONFIG ?= datasets/aruco_sample/calibration.yaml
+CALIBRATION_RESULT ?= local/datasets/aruco_sample/calibration_result.yaml
+CALIBRATION_VISUALIZATION_DIR ?= local/datasets/aruco_sample/calibration_axes
 CALIBRATION_AXIS_LENGTH_M ?= 0.05625
-VOXEL_CARVING_CONFIG ?= configs/voxel_carving/sample.yaml
+VOXEL_CARVING_CONFIG ?= datasets/aruco_sample/voxel_carving.yaml
 CXX_FORMAT_FILES := $(shell find apps include src -type f \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null | sort)
 CXX_LINT_FILES := $(shell find apps src -type f -name '*.cpp' 2>/dev/null | sort)
 
@@ -160,7 +160,7 @@ help:
 	@echo "  make python-tools-build"
 	@echo "                     Build the covoca-toolkit Python package with uv"
 	@echo "  make download-sample-data"
-	@echo "                     Download public ArUco sample images into data/sample_aruco"
+	@echo "                     Download public ArUco sample images into local/datasets/aruco_sample"
 	@echo "  make calibrate-sample"
 	@echo "                     Download sample data and write $(CALIBRATION_RESULT)"
 	@echo "  make visualize-calibration"

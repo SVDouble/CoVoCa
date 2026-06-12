@@ -69,23 +69,6 @@ CMakeUserPresets.json
 *.vrb
 docs/proposal/main.pdf
 
-# Local datasets and generated experiment artifacts
-/captures/
-/data/
-/datasets/
-/exports/
-/outputs/
-/results/
-/runs/
-
-!/captures/.gitkeep
-!/data/.gitkeep
-!/datasets/.gitkeep
-!/exports/.gitkeep
-!/outputs/.gitkeep
-!/results/.gitkeep
-!/runs/.gitkeep
-
 # Shared VS Code config is committed; personal files stay local.
 .vscode/*
 !.vscode/extensions.json

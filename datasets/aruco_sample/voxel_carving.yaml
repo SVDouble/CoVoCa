@@ -2,9 +2,9 @@ schema: gs.voxel_carving.config.v1
 name: sample_visual_hull
 
 paths:
-  calibration_result: data/sample_aruco/calibration_result.yaml
-  masks_dir: data/sample_aruco/masks
-  output_dir: outputs/voxel_carving/sample
+  calibration_result: local/datasets/aruco_sample/calibration_result.yaml
+  masks_dir: local/datasets/aruco_sample/masks
+  output_dir: local/outputs/aruco_sample
 
 volume:
   min_m: [-0.15, -0.15, 0.0]
@@ -18,8 +18,6 @@ carving:
   min_required_views: 1
 
 export:
-  occupied_points_ply: visual_hull_points.ply
-  occupied_mesh_ply: visual_hull_voxels.ply
-
-benchmark:
-  open3d_enabled: true
+  format: ply
+  occupied_points_file: visual_hull_points.ply
+  occupied_mesh_file: visual_hull_voxels.ply

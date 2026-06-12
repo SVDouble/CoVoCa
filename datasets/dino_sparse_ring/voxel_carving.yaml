@@ -1,0 +1,23 @@
+schema: gs.voxel_carving.config.v1
+name: dino_sparse_ring
+
+paths:
+  calibration_result: local/datasets/dino_sparse_ring/calibration_result.yaml
+  masks_dir: local/datasets/dino_sparse_ring/masks
+  output_dir: local/outputs/dino_sparse_ring
+
+volume:
+  min_m: [-0.066897, -0.023874, -0.062845]
+  max_m: [0.015897, 0.073227, 0.020495]
+  voxel_size_m: 0.001
+
+carving:
+  sample_policy: center
+  outside_image_policy: ignore_view
+  foreground_threshold: 128
+  min_required_views: 1
+
+export:
+  format: ply
+  occupied_points_file: dino_points.ply
+  occupied_mesh_file: dino_voxels.ply

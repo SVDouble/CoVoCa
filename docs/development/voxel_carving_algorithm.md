@@ -27,7 +27,7 @@ hull**: the largest 3D shape consistent with all input silhouettes.
 ## 2. Inputs
 
 All inputs are described by a single config file (see
-`configs/voxel_carving/sample.yaml`).
+`datasets/aruco_sample/voxel_carving.yaml`).
 
 ### 2.1 Voxel-carving config (`VoxelCarvingConfig`)
 
@@ -37,7 +37,7 @@ utilitarian step: parse YAML/JSON into a typed struct, then check invariants
 the type system cannot express:
 
 - `paths.calibration_result`, `paths.masks_dir`, `paths.output_dir`,
-  `export.occupied_points_ply`, `export.occupied_mesh_ply`: non-empty.
+  `export.occupied_points_file`, `export.occupied_mesh_file`: non-empty.
 - `volume.max_m > volume.min_m` on every axis.
 - `carving.foreground_threshold` in `[0, 255]`.
 
@@ -154,10 +154,12 @@ Output: `VoxelCarvingResult{volume, stats}`, where `stats` records
 
 ### 3.6 Export
 
-`VoxelExport.cpp` writes the carved volume as ASCII PLY:
+`VoxelExport.cpp` writes the carved volume in ASCII PLY or ASCII OFF,
+selected by `export.format`:
 
-- `writeOccupiedPointsPly`: one vertex per occupied voxel, at `center(index)`.
-- `writeOccupiedCubeMeshPly`: per occupied voxel, the 8 `corners(index)` as
+- `writeOccupiedPoints`: one vertex per occupied voxel, at `center(index)`.
+  Under `"off"`, the file has zero faces.
+- `writeOccupiedCubeMesh`: per occupied voxel, the 8 `corners(index)` as
   vertices plus 12 triangles (2 per face, via a fixed face table indexed by
   the `dz * 4 + dy * 2 + dx` corner ordering).
 
@@ -191,3 +193,5 @@ For voxel `index = (30, 30, 10)`:
 - **Pinhole camera model**: the projection formula in §3.2; excludes lens
   distortion.
 - **PLY**: a text/binary file format for point clouds and meshes.
+- **OFF**: a plain-text mesh file format (`OFF\n<#vertices> <#faces> <#edges>`,
+  followed by vertex coordinates and face vertex-index lists).

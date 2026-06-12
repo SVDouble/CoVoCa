@@ -49,21 +49,39 @@ std::vector<GridIndex> occupiedIndices(const VoxelVolume& volume) {
     return indices;
 }
 
+// Quads over the 8 corners returned by VoxelVolume::corners(), indexed by dz*4 + dy*2 + dx.
+constexpr std::array<std::array<int, 4>, 6> kCubeFaces{{
+    {0, 1, 3, 2}, // z = 0
+    {4, 5, 7, 6}, // z = 1
+    {0, 1, 5, 4}, // y = 0
+    {2, 3, 7, 6}, // y = 1
+    {0, 2, 6, 4}, // x = 0
+    {1, 3, 7, 5}, // x = 1
+}};
+
+bool isOff(ExportFormat format) {
+    return format.value() == ExportFormat::value_of<"off">();
+}
+
 } // namespace
 
-void writeOccupiedPointsPly(const std::filesystem::path& path, const VoxelVolume& volume) {
+void writeOccupiedPoints(const std::filesystem::path& path, const VoxelVolume& volume, ExportFormat format) {
     const std::vector<GridIndex> indices = occupiedIndices(volume);
 
     std::ofstream stream = openOutput(path);
-    stream << "ply\n"
-              "format ascii 1.0\n"
-              "element vertex "
-           << indices.size()
-           << "\n"
-              "property float x\n"
-              "property float y\n"
-              "property float z\n"
-              "end_header\n";
+    if (isOff(format)) {
+        stream << "OFF\n" << indices.size() << " 0 0\n";
+    } else {
+        stream << "ply\n"
+                  "format ascii 1.0\n"
+                  "element vertex "
+               << indices.size()
+               << "\n"
+                  "property float x\n"
+                  "property float y\n"
+                  "property float z\n"
+                  "end_header\n";
+    }
 
     for (const GridIndex& index : indices) {
         const Eigen::Vector3d center = volume.center(index);
@@ -71,33 +89,28 @@ void writeOccupiedPointsPly(const std::filesystem::path& path, const VoxelVolume
     }
 }
 
-void writeOccupiedCubeMeshPly(const std::filesystem::path& path, const VoxelVolume& volume) {
+void writeOccupiedCubeMesh(const std::filesystem::path& path, const VoxelVolume& volume, ExportFormat format) {
     const std::vector<GridIndex> indices = occupiedIndices(volume);
-
-    // Quads over the 8 corners returned by VoxelVolume::corners(), indexed by dz*4 + dy*2 + dx.
-    constexpr std::array<std::array<int, 4>, 6> kFaces{{
-        {0, 1, 3, 2}, // z = 0
-        {4, 5, 7, 6}, // z = 1
-        {0, 1, 5, 4}, // y = 0
-        {2, 3, 7, 6}, // y = 1
-        {0, 2, 6, 4}, // x = 0
-        {1, 3, 7, 5}, // x = 1
-    }};
+    const std::size_t triangleCount = indices.size() * kCubeFaces.size() * 2;
 
     std::ofstream stream = openOutput(path);
-    stream << "ply\n"
-              "format ascii 1.0\n"
-              "element vertex "
-           << (indices.size() * 8)
-           << "\n"
-              "property float x\n"
-              "property float y\n"
-              "property float z\n"
-              "element face "
-           << (indices.size() * kFaces.size() * 2)
-           << "\n"
-              "property list uchar int vertex_indices\n"
-              "end_header\n";
+    if (isOff(format)) {
+        stream << "OFF\n" << (indices.size() * 8) << " " << triangleCount << " 0\n";
+    } else {
+        stream << "ply\n"
+                  "format ascii 1.0\n"
+                  "element vertex "
+               << (indices.size() * 8)
+               << "\n"
+                  "property float x\n"
+                  "property float y\n"
+                  "property float z\n"
+                  "element face "
+               << triangleCount
+               << "\n"
+                  "property list uchar int vertex_indices\n"
+                  "end_header\n";
+    }
 
     for (const GridIndex& index : indices) {
         for (const Eigen::Vector3d& corner : volume.corners(index)) {
@@ -107,7 +120,7 @@ void writeOccupiedCubeMeshPly(const std::filesystem::path& path, const VoxelVolu
 
     for (std::size_t voxel = 0; voxel < indices.size(); ++voxel) {
         const int base = static_cast<int>(voxel * 8);
-        for (const auto& face : kFaces) {
+        for (const auto& face : kCubeFaces) {
             stream << "3 " << (base + face[0]) << " " << (base + face[1]) << " " << (base + face[2]) << "\n";
             stream << "3 " << (base + face[0]) << " " << (base + face[2]) << " " << (base + face[3]) << "\n";
         }

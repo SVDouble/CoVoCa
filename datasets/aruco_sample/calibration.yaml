@@ -2,8 +2,8 @@ schema: gs.calibration.config.v1
 name: sample_aruco_gridboard
 
 paths:
-  images: data/sample_aruco/aruco_data
-  result: data/sample_aruco/calibration_result.yaml
+  images: local/datasets/aruco_sample/aruco_data
+  result: local/datasets/aruco_sample/calibration_result.yaml
 
 board:
   type: aruco_grid

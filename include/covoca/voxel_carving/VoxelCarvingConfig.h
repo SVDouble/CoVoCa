@@ -15,6 +15,7 @@ namespace covoca::voxel_carving {
 using ConfigSchema = rfl::Literal<"gs.voxel_carving.config.v1">;
 using SamplePolicy = rfl::Literal<"center", "corners", "center_and_corners">;
 using OutsideImagePolicy = rfl::Literal<"carve", "keep", "ignore_view">;
+using ExportFormat = rfl::Literal<"ply", "off">;
 using covoca::config::PositiveDouble;
 using covoca::config::PositiveInt;
 
@@ -97,27 +98,24 @@ struct CarvingConfig {
 
 /// Export output file names, relative to `paths.output_dir`.
 struct ExportConfig {
-    /// Filename for the ASCII PLY point cloud containing the center of every
-    /// occupied (surviving) voxel.
-    std::filesystem::path occupied_points_ply;
+    /// File format for both exported files:
+    ///  - `"ply"`: ASCII PLY (point cloud / triangle mesh).
+    ///  - `"off"`: ASCII OFF (point cloud / triangle mesh, no faces for the
+    ///    point cloud).
+    ExportFormat format;
 
-    /// Filename for the ASCII PLY mesh containing one cube (8 vertices, 12
-    /// triangles) per occupied voxel.
-    std::filesystem::path occupied_mesh_ply;
-};
+    /// Filename for the point cloud containing the center of every occupied
+    /// (surviving) voxel, one vertex per voxel.
+    std::filesystem::path occupied_points_file;
 
-/// Open3D parity benchmark settings.
-struct BenchmarkConfig {
-    /// Reserved for future use: when true, also run the Open3D
-    /// `carve_silhouette` reference implementation with the same inputs and
-    /// report occupied-voxel-count/IoU/runtime differences. Not yet
-    /// implemented by `voxel_carve`.
-    bool open3d_enabled = false;
+    /// Filename for the mesh containing one cube (8 vertices, 12 triangles)
+    /// per occupied voxel.
+    std::filesystem::path occupied_mesh_file;
 };
 
 /// Full voxel-carving configuration loaded from a YAML/JSON file.
 ///
-/// See `configs/voxel_carving/sample.yaml` for a complete example.
+/// See `datasets/aruco_sample/voxel_carving.yaml` for a complete example.
 struct VoxelCarvingConfig {
     /// Config schema identifier; must be the literal string
     /// `"gs.voxel_carving.config.v1"`.
@@ -139,9 +137,6 @@ struct VoxelCarvingConfig {
     /// `.get()`) because `export` is a reserved C++ keyword, but the YAML/JSON
     /// key is `export`. See `ExportConfig`.
     rfl::Rename<"export", ExportConfig> export_config;
-
-    /// Optional Open3D benchmark settings. See `BenchmarkConfig`.
-    BenchmarkConfig benchmark;
 };
 
 /**
