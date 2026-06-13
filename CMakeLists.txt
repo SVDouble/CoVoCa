@@ -10,6 +10,7 @@ find_package(OpenCV REQUIRED)
 
 add_executable(main
     src/main.cpp
+    src/SilhouetteExtractor.cpp
 )
 
 target_include_directories(main PRIVATE
