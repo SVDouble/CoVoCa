@@ -7,7 +7,7 @@
 int main()
 {
     int size = 10;
-    double step_size = 0.1;
+    d step_size = 0.1;
 
     VoxelGrid voxel_grid(size, step_size);
 
