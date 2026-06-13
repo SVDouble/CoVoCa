@@ -59,8 +59,6 @@ public:
         return m_voxel_flattened_matrix[calculateFlattenedIndex(m_size, _row, _coloumn, _depth)];
     }
 
-    // Other
-
 private:
     int m_size;                                  // assuming a cube, could be changed for sizeX, sizeY, sizeZ if needed
     std::vector<Voxel> m_voxel_flattened_matrix; // of size n³, index = row_index + n_rows * (coloumn_index + n_coloumns * depth_index)

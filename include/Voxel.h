@@ -19,7 +19,7 @@ public:
         m_index_pos = _index_pos;
     }
 
-    // Getters (keine Ahnung wie das eigentlich heisst)
+    // Getters
     Eigen::Vector3d getCartesianPos()
     {
         return m_cartesian_pos;
@@ -31,6 +31,6 @@ public:
     }
 
 private:
-    Eigen::Vector3d m_cartesian_pos;
-    Eigen::Vector3i m_index_pos; // indexes in Voxel grid [row, coloumn, depth], initialize at [-1, -1, -1]
+    Eigen::Vector3d m_cartesian_pos; // Cartesion pose of voxel center
+    Eigen::Vector3i m_index_pos;     // indexes in Voxel grid [row, coloumn, depth], initialize at [-1, -1, -1]
 };
