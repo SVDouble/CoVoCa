@@ -1,26 +1,30 @@
 #pragma once
 
 #include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <vector>
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
+#include "Camera.h"
+
+namespace fs = std::filesystem;
+
 // Flattened index to access voxelgrid matrix
-int calculateFlattenedIndex(int _size, int _row, int _coloumn, int _depth)
-{
-    return _row + _size * (_coloumn + _size * _depth);
-}
+int calculateFlattenedIndex(
+    int _size,
+    int _row,
+    int _column,
+    int _depth);
 
-void visualizeSilhouette(const cv::Mat& original, const cv::Mat& silhouette,
-                         const std::string& windowName = "Silhouette Check") {
+void visualizeSilhouette(
+    const cv::Mat &original,
+    const cv::Mat &silhouette,
+    const std::string &windowName = "Silhouette Check");
 
-    if (original.empty() || silhouette.empty()) {
-        std::cerr << "Cannot visualize empty images!" << std::endl;
-        return;
-    }
+// Loads all images into a vector of cv::Mat
+std::vector<cv::Mat> loadImages(std::string _folder);
 
-    cv::Mat sideBySide;
-    cv::hconcat(original,silhouette, sideBySide);
-
-    cv::imshow(windowName, sideBySide);
-    cv::waitKey(1);
-}
+// Load cameras intrinsics and extrinsics from dino_par.txt
+std::vector<Camera> loadCameras(const std::string &filename);

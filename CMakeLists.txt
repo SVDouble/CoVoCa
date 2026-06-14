@@ -11,6 +11,11 @@ find_package(OpenCV REQUIRED)
 add_executable(main
     src/main.cpp
     src/SilhouetteExtractor.cpp
+    src/Camera.cpp
+    src/Voxel.cpp
+    src/VoxelGrid.cpp
+    src/HelperFunctions.cpp
+    src/VoxelCarver.cpp
 )
 
 target_include_directories(main PRIVATE

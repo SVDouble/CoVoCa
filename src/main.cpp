@@ -6,43 +6,14 @@
 #include "Voxel.h"
 #include "VoxelGrid.h"
 #include "Camera.h"
-
-namespace fs = std::filesystem;
-
-std::vector<cv::Mat> loadImages(std::string _folder)
-// Loads all images (type .png, other types can easily be added) into a cv::Mat matrix and returns a vector of these matrices
-{
-    int i = 0;
-    cv::Mat image;
-    std::vector<cv::Mat> imageVector;
-
-    for (const auto entry : fs::directory_iterator(_folder))
-    {
-        i++;
-        image = cv::imread(entry.path().string(), cv::IMREAD_COLOR);
-
-        std::string extension = entry.path().extension().string();
-        if (extension == ".png") // other image types could be added
-        {
-            std::cout << "Loaded image no. "
-                      << i
-                      << " from "
-                      << entry.path().filename()
-                      << " : "
-                      << image.cols << "x"
-                      << image.rows << std::endl;
-
-            imageVector.push_back(image);
-        }
-    }
-
-    return imageVector;
-}
+#include "SilhouetteExtractor.h"
+#include "HelperFunctions.h"
+#include "VoxelCarver.h"
 
 int main()
 {
     // Initialize VoxelGrid
-    int size = 10;
+    int size = 1000;
     double step_size = 0.1;
 
     VoxelGrid voxel_grid(size, step_size);
@@ -57,9 +28,26 @@ int main()
     std::cout << "Voxel index position: " << test_voxel.getIndexPos() << std::endl;
 
     // Test image loading
-    std::string folder = "/home/conrad/cpp_ws/3D_Scanning/Data/dino";
+    std::string folder = "/home/conrad/cpp_ws/3D_Scanning/Data/dino_selection";
 
     std::vector<cv::Mat> imageVector = loadImages(folder);
 
+    SilhouetteExtractor silhouette_extractor;
+    std::vector<cv::Mat> silhouette_vector;
+    cv::Mat silhouette;
+
+    for (size_t i = 0; i < imageVector.size(); ++i)
+    {
+        silhouette = silhouette_extractor.extract(imageVector[i]);
+        silhouette_vector.push_back(silhouette);
+
+        std::string filename = "silhouette_" + std::to_string(i) + ".png";
+        silhouette_extractor.saveSilhouette(silhouette, filename);
+    }
+
+    std::string camera_file = "/home/conrad/LRZ Sync+Share/CoVoCa Datasets/Dino Dataset/dino_selection/dino_par.txt";
+    std::vector<Camera> camera_vector = loadCameras(camera_file);
+
+    VoxelCarver voxel_carver(voxel_grid, silhouette_vector, camera_vector);
     return 0;
 }
