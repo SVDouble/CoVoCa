@@ -18,6 +18,9 @@ public:
     double getStepSize() const;
     const Voxel &getVoxel(int _row, int _column, int _depth) const;
 
+    // Setter
+    void setVoxelOccupied(bool _occupied, int _index);
+
 private:
     int m_size;                                  // Assuming a cube
     std::vector<Voxel> m_voxel_flattened_matrix; // Size n³

@@ -48,3 +48,8 @@ const Voxel &VoxelGrid::getVoxel(int _row, int _column, int _depth) const
 {
     return m_voxel_flattened_matrix[calculateFlattenedIndex(m_size, _row, _column, _depth)];
 }
+
+void VoxelGrid::setVoxelOccupied(bool _occupied, int _index)
+{
+    m_voxel_flattened_matrix[_index].setOccupied(_occupied);
+}

@@ -30,3 +30,8 @@ Eigen::Vector3i Voxel::getIndexPos()
 {
     return m_index_pos;
 }
+
+void Voxel::setOccupied(bool _new_occupied)
+{
+    m_occupied = _new_occupied;
+}
