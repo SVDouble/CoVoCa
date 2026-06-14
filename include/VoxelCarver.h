@@ -20,7 +20,11 @@ public:
     const VoxelGrid &getVoxelGrid() const;
     const std::vector<View> &getViewVector() const;
 
+    // Carving method
+    void carve();
+
 private:
     VoxelGrid m_voxel_grid;
     std::vector<View> m_view_vector;
 };
+
