@@ -13,14 +13,22 @@ void visualizeSilhouette(
     const cv::Mat &silhouette,
     const std::string &windowName)
 {
-    if (original.empty() || silhouette.empty())
-    {
-        std::cerr << "Cannot visualize empty images!" << std::endl;
-        return;
+    if (original.empty() || silhouette.empty()) {
+      std::cerr << "Cannot visualize empty images!" << std::endl;
+      return;
+    }
+
+    //Convert silhouette from grayscale to color so that both have matching number of channels for concatenation
+    cv::Mat silhouetteColor;
+    if (silhouette.channels() == 1) {
+      cv::cvtColor(silhouette, silhouetteColor, cv::COLOR_GRAY2BGR);
+    }
+    else {
+      silhouetteColor = silhouette.clone();
     }
 
     cv::Mat sideBySide;
-    cv::hconcat(original, silhouette, sideBySide);
+    cv::hconcat(original,silhouetteColor, sideBySide);
 
     cv::imshow(windowName, sideBySide);
     cv::waitKey(1);
