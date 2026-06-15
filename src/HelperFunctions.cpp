@@ -1,12 +1,11 @@
 #include "HelperFunctions.h"
 
-int calculateFlattenedIndex(
-    int _size,
-    int _row,
-    int _column,
-    int _depth)
+int calculateFlattenedIndex(const Eigen::Vector3i &size,
+                            int x,
+                            int y,
+                            int z)
 {
-    return _row + _size * (_column + _size * _depth);
+    return x + size.x() * (y + size.y() * z);
 }
 
 void visualizeSilhouette(
@@ -29,34 +28,46 @@ void visualizeSilhouette(
 
 std::vector<cv::Mat> loadImages(std::string _folder)
 {
-    int i = 0;
-    cv::Mat image;
+    std::vector<std::filesystem::path> files;
+
+    // collect all png files
+    for (const auto &entry : std::filesystem::directory_iterator(_folder))
+    {
+        if (entry.path().extension() == ".png")
+        {
+            files.push_back(entry.path());
+        }
+    }
+
+    // sort by filename (lexicographical order),
+    // important to load in same order as cameras since index in vector detemines which camera is associated
+    std::sort(files.begin(), files.end());
+
     std::vector<cv::Mat> imageVector;
 
-    for (const auto &entry : fs::directory_iterator(_folder))
+    int i = 0;
+
+    for (const auto &path : files)
     {
-        i++;
+        cv::Mat image = cv::imread(path.string(), cv::IMREAD_COLOR);
 
-        image = cv::imread(
-            entry.path().string(),
-            cv::IMREAD_COLOR);
-
-        std::string extension =
-            entry.path().extension().string();
-
-        if (extension == ".png")
+        if (image.empty())
         {
-            std::cout << "Loaded image no. "
-                      << i
-                      << " from "
-                      << entry.path().filename()
-                      << " : "
-                      << image.cols << "x"
-                      << image.rows
-                      << std::endl;
-
-            imageVector.push_back(image);
+            std::cerr << "Failed to load: " << path << std::endl;
+            continue;
         }
+
+        std::cout << "Loaded image no. "
+                  << i
+                  << " from "
+                  << path.filename()
+                  << " : "
+                  << image.cols << "x"
+                  << image.rows
+                  << std::endl;
+
+        imageVector.push_back(image);
+        i++;
     }
 
     return imageVector;
@@ -111,7 +122,7 @@ std::vector<Camera> loadCameras(const std::string &filename)
 
         cameras.emplace_back(K, R, t);
 
-        std::cout << "Loaded camera no. " << i << std::endl;
+        std::cout << "Loaded camera no. " << i << " associated with image " << image_name << std::endl;
     }
 
     return cameras;

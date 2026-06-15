@@ -11,9 +11,9 @@ public:
     Voxel(Eigen::Vector3d _cartesian_pos, Eigen::Vector3i _index_pos, bool _occupied);
 
     // Getters
-    Eigen::Vector3d getCartesianPos();
-    Eigen::Vector3i getIndexPos();
-    Eigen::Vector3i getOccupied();
+    Eigen::Vector3d getCartesianPos() const;
+    Eigen::Vector3i getIndexPos() const;
+    bool getOccupied() const;
 
     // Setters
     void setOccupied(bool _new_occupied);

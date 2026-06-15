@@ -12,11 +12,10 @@
 namespace fs = std::filesystem;
 
 // Flattened index to access voxelgrid matrix
-int calculateFlattenedIndex(
-    int _size,
-    int _row,
-    int _column,
-    int _depth);
+int calculateFlattenedIndex(const Eigen::Vector3i &size,
+                            int x,
+                            int y,
+                            int z);
 
 void visualizeSilhouette(
     const cv::Mat &original,

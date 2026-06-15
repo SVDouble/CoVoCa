@@ -12,11 +12,25 @@
 
 int main()
 {
-    // Initialize VoxelGrid
-    int size = 1000;
-    double step_size = 0.1;
+    // Bounding box from Dino dataset README file
 
-    VoxelGrid voxel_grid(size, step_size);
+    double xmin = -0.041897;
+    double xmax = 0.030897;
+
+    double ymin = 0.001126;
+    double ymax = 0.088227;
+
+    double zmin = -0.037845;
+    double zmax = 0.035495;
+
+    // Initialize voxelgrid
+
+    Eigen::Vector3d bounding_box_min(xmin, ymin, zmin);
+    Eigen::Vector3d bounding_box_max(xmax, ymax, zmax);
+
+    Eigen::Vector3i size(100, 100, 100);
+
+    VoxelGrid voxel_grid(bounding_box_min, bounding_box_max, size);
 
     // Test VoxelGrid and Voxel classes
     std::cout << "Voxelgrid size: " << voxel_grid.getSize() << std::endl;
@@ -45,9 +59,16 @@ int main()
         silhouette_extractor.saveSilhouette(silhouette, filename);
     }
 
+    // Test camera loading
     std::string camera_file = "/home/conrad/LRZ Sync+Share/CoVoCa Datasets/Dino Dataset/dino_selection/dino_par.txt";
     std::vector<Camera> camera_vector = loadCameras(camera_file);
 
+    // Test voxelcarving
     VoxelCarver voxel_carver(voxel_grid, silhouette_vector, camera_vector);
+
+    voxel_carver.carve();
+
+    VoxelGrid carved_voxel_grid = voxel_carver.getVoxelGrid();
+    carved_voxel_grid.saveVoxelGrid();
     return 0;
 }

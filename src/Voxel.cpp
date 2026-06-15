@@ -21,14 +21,19 @@ Voxel::Voxel(Eigen::Vector3d _cartesian_pos, Eigen::Vector3i _index_pos, bool _o
     m_occupied = _occupied;
 }
 
-Eigen::Vector3d Voxel::getCartesianPos()
+Eigen::Vector3d Voxel::getCartesianPos() const
 {
     return m_cartesian_pos;
 }
 
-Eigen::Vector3i Voxel::getIndexPos()
+Eigen::Vector3i Voxel::getIndexPos() const
 {
     return m_index_pos;
+}
+
+bool Voxel::getOccupied() const
+{
+    return m_occupied;
 }
 
 void Voxel::setOccupied(bool _new_occupied)
