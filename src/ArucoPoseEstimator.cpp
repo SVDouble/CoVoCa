@@ -9,7 +9,7 @@ ArucoPoseEstimator::ArucoPoseEstimator(int _markers_x, int _markers_y,
                                        float _marker_length, float _marker_separation, 
                                        cv::aruco::PREDEFINED_DICTIONARY_NAME _dict_name)
 {
-    // Load Dictionary
+    // 1. Load Dictionary
     m_dictionary = cv::aruco::getPredefinedDictionary(_dict_name);
 
     // 2. Create the grid board object with the specified parameters
