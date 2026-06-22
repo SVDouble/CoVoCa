@@ -5,16 +5,9 @@
 
 class SilhouetteExtractor {
 public:
-    SilhouetteExtractor(int thresholdValue = 30);
+    virtual ~SilhouetteExtractor() = default;
 
-    cv::Mat extract(const cv::Mat& inputImage);
+    virtual cv::Mat extract(const cv::Mat& inputImage) = 0;
 
-    void saveSilhouette(const cv::Mat& silhouette, const std::string& filename);
-
-    void setThreshold(int value);
-
-    int getThreshold();
-
-private:
-    int thresholdValue_;
+    static void saveSilhouette(const cv::Mat& silhouette, const std::string& filename);
 };

@@ -5,9 +5,6 @@ project(CoVoCa)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(Eigen3_DIR "C:/Users/FengVV/CoVoCa/lib/eigen-5.0.1")
-set(OpenCV_DIR "C:/Users/FengVV/opencv")
-
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 
@@ -20,6 +17,7 @@ add_executable(main
     src/HelperFunctions.cpp
     src/VoxelCarver.cpp
     src/ArucoPoseEstimator.cpp
+    src/ThresholdExtractor.cpp
 )
 
 target_include_directories(main PRIVATE
