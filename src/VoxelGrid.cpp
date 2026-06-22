@@ -110,11 +110,9 @@ void VoxelGrid::saveVoxelGrid()
               << " occupied voxels to voxel_grid.ply\n";
 }
 
-bool VoxelGrid::isOccupied(int x,
-                           int y,
-                           int z) const
+bool VoxelGrid::isOccupied(int x, int y, int z) const
 {
-    // Outside grid
+    // Outside grid always unoccupied
 
     if (x < 0 || x >= m_size.x() ||
         y < 0 || y >= m_size.y() ||
@@ -123,11 +121,9 @@ bool VoxelGrid::isOccupied(int x,
         return false;
     }
 
-    int index =
-        x + y * m_size.x() + z * m_size.x() * m_size.y();
+    int index = x + y * m_size.x() + z * m_size.x() * m_size.y();
 
-    return m_voxel_flattened_matrix[index]
-        .getOccupied();
+    return m_voxel_flattened_matrix[index].getOccupied();
 }
 
 void VoxelGrid::saveHullMesh()
@@ -193,19 +189,15 @@ void VoxelGrid::saveHullMesh()
 
                 // Retrieve voxel
 
-                int index =
-                    x + y * m_size.x() + z * m_size.x() * m_size.y();
+                int index = x + y * m_size.x() + z * m_size.x() * m_size.y();
 
-                const Voxel &voxel =
-                    m_voxel_flattened_matrix[index];
+                const Voxel &voxel = m_voxel_flattened_matrix[index];
 
                 // Compute cube corners
 
-                Eigen::Vector3d center =
-                    voxel.getCartesianPos();
+                Eigen::Vector3d center = voxel.getCartesianPos();
 
-                Eigen::Vector3d half =
-                    m_step_size / 2.0;
+                Eigen::Vector3d half = m_step_size / 2.0;
 
                 std::vector<Eigen::Vector3d> corners(8);
 
@@ -229,14 +221,11 @@ void VoxelGrid::saveHullMesh()
 
                 for (int dir = 0; dir < 6; dir++)
                 {
-                    int nx =
-                        x + directions[dir].x();
+                    int nx = x + directions[dir].x();
 
-                    int ny =
-                        y + directions[dir].y();
+                    int ny = y + directions[dir].y();
 
-                    int nz =
-                        z + directions[dir].z();
+                    int nz = z + directions[dir].z();
 
                     // Internal face
 
@@ -247,20 +236,15 @@ void VoxelGrid::saveHullMesh()
 
                     // Add exterior face
 
-                    int c0 =
-                        faceCorners[dir][0];
+                    int c0 = faceCorners[dir][0];
 
-                    int c1 =
-                        faceCorners[dir][1];
+                    int c1 = faceCorners[dir][1];
 
-                    int c2 =
-                        faceCorners[dir][2];
+                    int c2 = faceCorners[dir][2];
 
-                    int c3 =
-                        faceCorners[dir][3];
+                    int c3 = faceCorners[dir][3];
 
-                    int start =
-                        vertices.size();
+                    int start = vertices.size();
 
                     vertices.push_back(corners[c0]);
 

@@ -25,7 +25,7 @@ public:
 
     void saveVoxelGrid();
 
-    void saveVoxelGrid();
+    void saveHullMesh();
 
 private:
     bool isOccupied(int x,

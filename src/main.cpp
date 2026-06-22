@@ -93,7 +93,7 @@ int main()
     {
         std::cout << "Use Dino dataset" << std::endl;
 
-        std::string folder = "/Users/fengvv/CoVoCa/data/Dino_Dataset/dino_selection";
+        std::string folder = "/home/conrad/LRZ Sync+Share/CoVoCa Datasets/Dino Dataset/dino_selection";
         std::vector<cv::Mat> imageVector = loadImages(folder);
 
         for (size_t i = 0; i < imageVector.size(); ++i)
@@ -104,7 +104,7 @@ int main()
             silhouette_extractor.saveSilhouette(silhouette, filename);
         }
 
-        std::string camera_file = "/Users/fengvv/CoVoCa/data/Dino_Dataset/dino_selection/dino_par.txt";
+        std::string camera_file = "/home/conrad/LRZ Sync+Share/CoVoCa Datasets/Dino Dataset/dino_selection/dino_par.txt";
         camera_vector = loadCameras(camera_file);
     }
     else
@@ -146,6 +146,7 @@ int main()
     VoxelGrid carved_voxel_grid = voxel_carver.getVoxelGrid();
 
     carved_voxel_grid.saveVoxelGrid();
+    carved_voxel_grid.saveHullMesh();
     // voxel_carver.exportToPLY("reconstruction_result.ply");
 
     std::cout << "End" << std::endl;
