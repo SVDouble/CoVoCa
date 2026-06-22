@@ -25,7 +25,13 @@ public:
 
     void saveVoxelGrid();
 
+    void saveVoxelGrid();
+
 private:
+    bool isOccupied(int x,
+                    int y,
+                    int z) const;
+
     Eigen::Vector3i m_size;
     std::vector<Voxel> m_voxel_flattened_matrix; // Size n³
     Eigen::Vector3d m_step_size;                 // Distance between neighboring voxels
