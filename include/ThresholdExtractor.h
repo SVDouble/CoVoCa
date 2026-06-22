@@ -10,7 +10,9 @@ public:
 
   cv::Mat extract(const cv::Mat& inputImage) override;
 
+  std::string name() const override;
+
 private:
-  ThresholdConfig config;
+  ThresholdConfig m_config;
 
 };

@@ -10,6 +10,8 @@
 #include "HelperFunctions.h"
 #include "VoxelCarver.h"
 #include "ArucoPoseEstimator.h"
+#include "ThresholdExtractor.h"
+#include "PlanarHomographyExtractor.h"
 
 
 
@@ -20,8 +22,49 @@ int main()
     // 
     std::vector<cv::Mat> silhouette_vector;
     std::vector<Camera> camera_vector;
-    SilhouetteExtractor silhouette_extractor;
 
+    // Setup for thresholdExtractor as silhouette extractor
+    ThresholdConfig thresholdConfig;
+    thresholdConfig.diffThreshold = 30;
+    ThresholdExtractor thresholdExtractor = ThresholdExtractor(thresholdConfig);
+
+    /*
+    // Setup for thresholdExtractor as silhouette extractor
+    cv::Mat refImg = cv::imread("dataset/referenceImages/aruco_marker_board.png");
+    if (refImg.empty()) {
+      std::cout << "Reference image could not be read" << std::endl;
+      return -1;
+    }
+    int dictId = cv::aruco::DICT_6X6_250;
+    auto dict = cv::aruco::getPredefinedDictionary(dictId);
+
+    std::vector<int> refIds;
+    std::vector<std::vector<cv::Point2f>> refCorners;
+    cv::aruco::detectMarkers(refImg, dict, refCorners, refIds);
+
+    if (refIds.empty()) {
+      std::cout << "No markers found in reference image" << std::endl;
+      return -1;
+    }
+
+    PlanarHomographyConfig planarHomographyConfig;
+    planarHomographyConfig.referenceImage = refImg;
+    planarHomographyConfig.referenceIds = refIds;
+    planarHomographyConfig.referenceCorners = refCorners;
+    planarHomographyConfig.arucoDictionaryId = dictId;
+    planarHomographyConfig.diffThreshold = 30;
+    planarHomographyConfig.useShadowDetection = false;
+    planarHomographyConfig.shadowBrightnessRatio = 0.7f;
+    planarHomographyConfig.minMarkersRequired = 4;
+
+    PlanarHomographyExtractor planarHomographyExtractor =
+        PlanarHomographyExtractor(planarHomographyConfig);
+    */
+
+    // Choose the wanted silhouette extractor
+
+    ThresholdExtractor silhouette_extractor = thresholdExtractor;
+    //PlanarHomographyExtractor silhouette_extractor = planarHomographyExtractor;
 
 
     // Bounding box from Dino dataset README file
@@ -103,7 +146,7 @@ int main()
     
    
     carved_voxel_grid.saveVoxelGrid(); 
-    voxel_carver.exportToPLY("reconstruction_result.ply"); 
+    //voxel_carver.exportToPLY("reconstruction_result.ply");
 
     std::cout << "End" << std::endl;
     return 0;
@@ -118,7 +161,7 @@ int main()
 
 
 
-    '''
+    /*
     Voxel test_voxel = voxel_grid.getVoxel(0, 0, 0);
 
     std::cout << "Voxel cartesian position: " << test_voxel.getCartesianPos() << std::endl;
@@ -155,4 +198,4 @@ int main()
     carved_voxel_grid.saveVoxelGrid();
     return 0;
 }
-    '''
+    */

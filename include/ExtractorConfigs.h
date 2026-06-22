@@ -10,7 +10,7 @@ struct ThresholdConfig {
 struct PlanarHomographyConfig {
   cv::Mat referenceImage;
 
-  std::vector<cv::Point2f> referenceCorners;
+  std::vector<std::vector<cv::Point2f>> referenceCorners;
   std::vector<int> referenceIds;
 
   int arucoDictionaryId = cv::aruco::DICT_6X6_250;
