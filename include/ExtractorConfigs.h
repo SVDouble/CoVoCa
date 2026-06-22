@@ -19,7 +19,7 @@ struct PlanarHomographyConfig {
   bool useShadowDetection = true;
   float shadowBrightnessRatio = 0.7f;
 
-  //morphological parameters?
+  //TODO: morphological parameters?
 
   int minMarkersRequired = 4;
 };

@@ -26,20 +26,29 @@ int findArucoDictionary(const cv::Mat& boardImage) {
       cv::aruco::DICT_ARUCO_ORIGINAL
   };
 
-  std::cout << "Scanning for Aruco dictionary...\n";
+  int bestDictId = -1;
+  int maxMarkers = 0;
+
   for (int dictId : dictIds) {
     auto dict = cv::aruco::getPredefinedDictionary(dictId);
     std::vector<int> ids;
     std::vector<std::vector<cv::Point2f>> corners;
     cv::aruco::detectMarkers(boardImage, dict, corners, ids);
-    if (!ids.empty()) {
-      std::cout << "Found dictionary ID: " << dictId
-                << " with " << ids.size() << " markers.\n";
-      return dictId;
+
+    if (ids.size() > maxMarkers) {
+      maxMarkers = ids.size();
+      bestDictId = dictId;
     }
   }
-  std::cout << "No dictionary detected.\n";
-  return -1;
+
+  if (bestDictId != -1) {
+    std::cout << "Best dictionary: ID " << bestDictId << " with " << maxMarkers
+              << " markers.\n";
+  }
+  else {
+    std::cout << "No dictionary detected markers.\n";
+  }
+  return bestDictId;
 }
 
 std::unique_ptr<SilhouetteExtractor> createPlanarExtractor(
@@ -83,13 +92,48 @@ std::unique_ptr<SilhouetteExtractor> createThresholdExtractor(int thresholdValue
   return std::make_unique<ThresholdExtractor>(config);
 }
 
+// Helper: show side-by-side comparison in one window
+void showSideBySide(const cv::Mat& original,
+                    const cv::Mat& mask,
+                    const cv::Mat& overlay,
+                    const std::string& windowName = "Comparison") {
+  // Convert mask to 3-channel for concatenation
+  cv::Mat maskColor;
+  cv::cvtColor(mask, maskColor, cv::COLOR_GRAY2BGR);
+
+  // Resize all to a common height to keep them manageable
+  int targetHeight = 300;
+  std::vector<cv::Mat> images = {original, maskColor, overlay};
+  std::vector<cv::Mat> resized;
+  for (auto& img : images) {
+    if (img.empty()) continue;
+    double scale = static_cast<double>(targetHeight) / img.rows;
+    int newWidth = static_cast<int>(img.cols * scale);
+    cv::Mat resizedImg;
+    cv::resize(img, resizedImg, cv::Size(newWidth, targetHeight));
+    resized.push_back(resizedImg);
+  }
+
+  if (resized.size() < 3) return;
+
+  // Concatenate horizontally
+  cv::Mat combined;
+  cv::hconcat(resized, combined);
+
+  // Show in a resizable window
+  cv::namedWindow(windowName, cv::WINDOW_NORMAL);
+  cv::imshow(windowName, combined);
+  cv::waitKey(0);
+  cv::destroyWindow(windowName);
+}
+
 void processImage(SilhouetteExtractor& extractor,
                   const std::string& imagePath,
                   bool show = true,
                   bool save = false) {
   cv::Mat image = cv::imread(imagePath);
   if (image.empty()) {
-    std::cerr << "Failed to load: " << imagePath << "\n";
+    std::cerr << "ERROR: Failed to load image: " << imagePath << "\n";
     return;
   }
 
@@ -97,16 +141,13 @@ void processImage(SilhouetteExtractor& extractor,
 
   cv::Mat mask = extractor.extract(image);
 
-  // Visualize overlay
+  // Overlay
   cv::Mat overlay;
   image.copyTo(overlay);
   overlay.setTo(cv::Scalar(0, 0, 255), mask);
 
   if (show) {
-    cv::imshow("Original", image);
-    cv::imshow("Mask: " + extractor.name(), mask);
-    cv::imshow("Overlay: " + extractor.name(), overlay);
-    cv::waitKey(0);
+    showSideBySide(image, mask, overlay, "Result: " + extractor.name());
   }
 
   if (save) {
