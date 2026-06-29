@@ -20,6 +20,7 @@ public:
 
     // Setter
     void setVoxelOccupied(bool _occupied, int _index);
+    void setVoxelColor(Eigen::Vector3i &_color, int _index);
 
     // Save for MeshLab
 

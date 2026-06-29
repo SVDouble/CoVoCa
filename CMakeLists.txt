@@ -19,6 +19,7 @@ add_executable(main
     src/ArucoPoseEstimator.cpp
     src/ThresholdExtractor.cpp
     src/PlanarHomographyExtractor.cpp
+    src/colorReconstructor.cpp
 )
 
 target_include_directories(main PRIVATE

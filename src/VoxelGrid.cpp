@@ -61,6 +61,11 @@ void VoxelGrid::setVoxelOccupied(bool _occupied, int _index)
     m_voxel_flattened_matrix[_index].setOccupied(_occupied);
 }
 
+void VoxelGrid::setVoxelColor(Eigen::Vector3i &_color, int _index)
+{
+    m_voxel_flattened_matrix[_index].setColor(_color);
+}
+
 void VoxelGrid::saveVoxelGrid()
 {
     std::ofstream file("voxel_grid.ply");
@@ -89,6 +94,9 @@ void VoxelGrid::saveVoxelGrid()
     file << "property float x\n";                        // vertexes defined by x,y,z position
     file << "property float y\n";
     file << "property float z\n";
+    file << "property uchar red\n";                      // RGB color properties
+    file << "property uchar green\n";
+    file << "property uchar blue\n";
     file << "end_header\n";
 
     // Write voxel centers
@@ -98,10 +106,14 @@ void VoxelGrid::saveVoxelGrid()
             continue;
 
         Eigen::Vector3d pos = voxel.getCartesianPos();
+        Eigen::Vector3i color = voxel.getColor();
 
         file << pos.x() << " "
              << pos.y() << " "
-             << pos.z() << "\n";
+             << pos.z() << " "
+             << color.x() << " "
+             << color.y() << " "
+             << color.z() << "\n";
     }
 
     file.close();
