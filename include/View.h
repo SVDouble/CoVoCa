@@ -8,4 +8,5 @@ struct View
 {
     Camera camera;
     cv::Mat silhouette;
+    cv::Mat colorImage; // Original color image for color reconstruction
 };
