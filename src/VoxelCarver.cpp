@@ -3,7 +3,8 @@
 // Constructor
 VoxelCarver::VoxelCarver(VoxelGrid _voxel_grid,
                          std::vector<cv::Mat> _silhouette_vector,
-                         std::vector<Camera> _camera_vector)
+                         std::vector<Camera> _camera_vector,
+                         std::vector<cv::Mat> _color_image_vector)
     : m_voxel_grid(std::move(_voxel_grid))
 {
     size_t n = std::min(_silhouette_vector.size(),
@@ -16,6 +17,12 @@ VoxelCarver::VoxelCarver(VoxelGrid _voxel_grid,
         View view;
         view.camera = std::move(_camera_vector[i]);
         view.silhouette = std::move(_silhouette_vector[i]);
+
+        // Store original color image if available
+        if (i < _color_image_vector.size())
+        {
+            view.colorImage = std::move(_color_image_vector[i]);
+        }
 
         m_view_vector.push_back(std::move(view));
     }

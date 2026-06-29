@@ -14,7 +14,8 @@ public:
     // Constructor
     VoxelCarver(VoxelGrid _voxel_grid,
                 std::vector<cv::Mat> _silhouette_vector,
-                std::vector<Camera> _camera_vector);
+                std::vector<Camera> _camera_vector,
+                std::vector<cv::Mat> _color_image_vector = {});
 
     // Getters
     const VoxelGrid &getVoxelGrid() const;
