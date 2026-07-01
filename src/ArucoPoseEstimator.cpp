@@ -17,6 +17,11 @@ ArucoPoseEstimator::ArucoPoseEstimator(int _markers_x, int _markers_y,
 
     // 3. Initialize the detector parameters 
     m_detector_params = cv::aruco::DetectorParameters::create();
+    m_detector_params->cornerRefinementMethod = cv::aruco::CORNER_REFINE_SUBPIX;
+
+    // 4. Calculate board center offsets mathematically (objPoints is inaccessible in this OpenCV version)
+    m_board_offset_x = (_markers_x * _marker_length + (_markers_x - 1) * _marker_separation) / 2.0f;
+    m_board_offset_y = (_markers_y * _marker_length + (_markers_y - 1) * _marker_separation) / 2.0f;
 }
 
 void ArucoPoseEstimator::setIntrinsics(const cv::Mat& _camera_matrix, const cv::Mat& _dist_coeffs)
@@ -44,6 +49,9 @@ bool ArucoPoseEstimator::estimateCameraPose(const cv::Mat& _image, Camera& _out_
         return false;
     }
 
+    // Refine detected markers (helps with partial occlusion)
+    cv::aruco::refineDetectedMarkers(_image, m_board, marker_corners, marker_ids, rejected_candidates, m_camera_matrix, m_dist_coeffs);
+
     //compute the pose of the board
     cv::Vec3d rvec, tvec; 
 
@@ -65,6 +73,19 @@ bool ArucoPoseEstimator::estimateCameraPose(const cv::Mat& _image, Camera& _out_
         cv::cv2eigen(R_cv, R_eigen);
         cv::cv2eigen(tvec, t_eigen);
         cv::cv2eigen(m_camera_matrix, K_eigen);
+
+        // Shift origin to the center of the board
+        Eigen::Vector3d offset(m_board_offset_x, m_board_offset_y, 0.0);
+        t_eigen = t_eigen + R_eigen * offset;
+
+        // Convert the board coordinate system so that Z points UP from the board instead of DOWN.
+        // OpenCV's GridBoard default: X right, Y down, Z into the plane.
+        // Multiply by 180 degree rotation around X to flip Y and Z.
+        Eigen::Matrix3d Rx180;
+        Rx180 << 1, 0, 0,
+                 0, -1, 0,
+                 0, 0, -1;
+        R_eigen = R_eigen * Rx180;
 
     
         _out_camera.setIntrinsics(K_eigen);

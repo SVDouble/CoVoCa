@@ -36,4 +36,7 @@ private:
 
     cv::Mat m_camera_matrix;
     cv::Mat m_dist_coeffs;
+    
+    float m_board_offset_x;
+    float m_board_offset_y;
 };
