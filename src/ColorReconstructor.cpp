@@ -46,6 +46,11 @@ ColorReconstructor::collectColorSamples(const Voxel &voxel) const
             continue;
 
         // Project voxel into this view
+        Eigen::Vector3d pos_cam = view.camera.worldToCamera(pos_3d);
+        // If the voxel is behind the camera, skip it
+        if (pos_cam.z() <= 0)
+            continue;
+
         Eigen::Vector2d projected = view.camera.projectPoint(pos_3d);
         int x = static_cast<int>(std::round(projected.x()));
         int y = static_cast<int>(std::round(projected.y()));
@@ -163,3 +168,93 @@ void ColorReconstructor::bestViewSelection()
    
 }
 
+// Weighted Averaging 
+void ColorReconstructor::weightedColorAveraging()
+{
+    std::cout << "Weighted Averaging" << std::endl;
+
+    auto &voxels = m_voxel_grid.getVoxelGrid();
+    int colored_count = 0;
+
+    for (size_t i = 0; i < voxels.size(); ++i)
+    {
+        if (!voxels[i].getOccupied())
+            continue;
+
+        auto samples = collectColorSamples(voxels[i]);
+
+        if (samples.empty())
+            continue;
+
+        Eigen::Vector3d weighted_color(0.0, 0.0, 0.0);
+        double total_weight = 0.0;
+
+        for (const auto &s : samples)
+        {
+            // Weight is proportional to centerScore and inversely proportional to squared distance
+            double weight = s.centerScore / (s.distance * s.distance + 1e-6);
+            weighted_color += s.color * weight;
+            total_weight += weight;
+        }
+
+        if (total_weight > 0.0) {
+            weighted_color /= total_weight;
+        }
+
+        m_voxel_grid.setVoxelColor(
+            Eigen::Vector3i(
+                std::clamp(static_cast<int>(std::round(weighted_color.x())), 0, 255),
+                std::clamp(static_cast<int>(std::round(weighted_color.y())), 0, 255),
+                std::clamp(static_cast<int>(std::round(weighted_color.z())), 0, 255)),
+            i);
+
+        colored_count++;
+    }
+}
+
+// Median Color Selection 
+void ColorReconstructor::medianColorSelection()
+{
+    std::cout << "Median Color Selection" << std::endl;
+
+    auto &voxels = m_voxel_grid.getVoxelGrid();
+    int colored_count = 0;
+
+    for (size_t i = 0; i < voxels.size(); ++i)
+    {
+        if (!voxels[i].getOccupied())
+            continue;
+
+        auto samples = collectColorSamples(voxels[i]);
+
+        if (samples.empty())
+            continue;
+
+        std::vector<double> r_vals;
+        std::vector<double> g_vals;
+        std::vector<double> b_vals;
+
+        for (const auto &s : samples)
+        {
+            r_vals.push_back(s.color.x());
+            g_vals.push_back(s.color.y());
+            b_vals.push_back(s.color.z());
+        }
+
+        std::sort(r_vals.begin(), r_vals.end());
+        std::sort(g_vals.begin(), g_vals.end());
+        std::sort(b_vals.begin(), b_vals.end());
+
+        size_t mid = samples.size() / 2;
+        Eigen::Vector3d median_color(r_vals[mid], g_vals[mid], b_vals[mid]);
+
+        m_voxel_grid.setVoxelColor(
+            Eigen::Vector3i(
+                std::clamp(static_cast<int>(std::round(median_color.x())), 0, 255),
+                std::clamp(static_cast<int>(std::round(median_color.y())), 0, 255),
+                std::clamp(static_cast<int>(std::round(median_color.z())), 0, 255)),
+            i);
+
+        colored_count++;
+    }
+}
