@@ -15,12 +15,6 @@ struct PlanarHomographyConfig {
 
   int arucoDictionaryId = cv::aruco::DICT_6X6_250;
 
-  int diffThreshold = 30;
-  bool useShadowDetection = true;
-  float shadowBrightnessRatio = 0.7f;
-
-  //TODO: morphological parameters?
-
   int minMarkersRequired = 4;
 };
 

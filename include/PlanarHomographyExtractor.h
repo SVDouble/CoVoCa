@@ -12,13 +12,13 @@ public:
   std::string name() const override;
 
 private:
-  cv::Mat extractForegroundInWarpedSpace(const cv::Mat& warpedColor);
-  void removeShadows(const cv::Mat& warpedColor, cv::Mat& mask);
+  cv::Mat createMarkerMask(const cv::Size& size);
+  cv::Mat createBoardMask(const cv::Size &size);
 
-  PlanarHomographyConfig m_config;
+      PlanarHomographyConfig m_config;
   cv::Ptr<cv::aruco::Dictionary> m_dictionary;
   cv::Mat m_refGray;
   std::unordered_map<int, std::vector<cv::Point2f>> m_refMarkerCorners;
-
+  cv::Mat m_boardMask;
 };
 

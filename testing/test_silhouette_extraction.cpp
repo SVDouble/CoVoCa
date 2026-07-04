@@ -76,9 +76,6 @@ std::unique_ptr<SilhouetteExtractor> createPlanarExtractor(
     return nullptr;
   }
 
-  config.diffThreshold = 30;
-  config.useShadowDetection = false;
-  config.shadowBrightnessRatio = 0.7f;
   config.minMarkersRequired = 4;
 
   std::cout << "Planar extractor ready: " << config.referenceIds.size() << " markers.\n";
