@@ -19,7 +19,7 @@ add_executable(main
     src/ArucoPoseEstimator.cpp
     src/ThresholdExtractor.cpp
     src/PlanarHomographyExtractor.cpp
-    src/colorReconstructor.cpp
+    src/ColorReconstructor.cpp
 )
 
 target_include_directories(main PRIVATE
@@ -46,3 +46,22 @@ target_include_directories(test_silhouette_extraction PRIVATE
 target_link_libraries(test_silhouette_extraction PRIVATE
         Eigen3::Eigen
         ${OpenCV_LIBS})
+
+add_executable(test_color_reconstruction
+        testing/test_color_reconstruction.cpp
+        src/VoxelCarver.cpp
+        src/ColorReconstructor.cpp
+        src/VoxelGrid.cpp
+        src/Voxel.cpp
+        src/Camera.cpp
+        src/HelperFunctions.cpp
+)
+
+target_include_directories(test_color_reconstruction PRIVATE
+        include
+)
+
+target_link_libraries(test_color_reconstruction PRIVATE
+        Eigen3::Eigen
+        ${OpenCV_LIBS}
+)

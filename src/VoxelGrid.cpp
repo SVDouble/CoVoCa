@@ -61,7 +61,7 @@ void VoxelGrid::setVoxelOccupied(bool _occupied, int _index)
     m_voxel_flattened_matrix[_index].setOccupied(_occupied);
 }
 
-void VoxelGrid::setVoxelColor(Eigen::Vector3i &_color, int _index)
+void VoxelGrid::setVoxelColor(const Eigen::Vector3i &_color, int _index)
 {
     m_voxel_flattened_matrix[_index].setColor(_color);
 }
