@@ -55,6 +55,7 @@ add_executable(test_color_reconstruction
         src/Voxel.cpp
         src/Camera.cpp
         src/HelperFunctions.cpp
+        src/ThresholdExtractor.cpp
 )
 
 target_include_directories(test_color_reconstruction PRIVATE
