@@ -1,23 +1,22 @@
 #include "ArucoPoseEstimator.h"
 
-#include "ArucoPoseEstimator.h"
 #include <opencv2/calib3d.hpp>     // For cv::Rodrigues matrix
 #include <opencv2/core/eigen.hpp>  // For cv::cv2eigen (OpenCV -> Eigen)
 #include <iostream>
 
 ArucoPoseEstimator::ArucoPoseEstimator(int _markers_x, int _markers_y, 
                                        float _marker_length, float _marker_separation, 
-                                       cv::aruco::PREDEFINED_DICTIONARY_NAME _dict_name)
+                                       int _dict_name)
 {
     // 1. Load Dictionary
     m_dictionary = cv::aruco::getPredefinedDictionary(_dict_name);
 
     // 2. Create the grid board object with the specified parameters
-    m_board = cv::aruco::GridBoard::create(_markers_x, _markers_y, _marker_length, _marker_separation, m_dictionary);
+    m_board = cv::makePtr<cv::aruco::GridBoard>(
+        cv::Size(_markers_x, _markers_y), _marker_length, _marker_separation, m_dictionary);
 
     // 3. Initialize the detector parameters 
-    m_detector_params = cv::aruco::DetectorParameters::create();
-    m_detector_params->cornerRefinementMethod = cv::aruco::CORNER_REFINE_SUBPIX;
+    m_detector_params.cornerRefinementMethod = cv::aruco::CORNER_REFINE_SUBPIX;
 
     // 4. Calculate board center offsets mathematically (objPoints is inaccessible in this OpenCV version)
     m_board_offset_x = (_markers_x * _marker_length + (_markers_x - 1) * _marker_separation) / 2.0f;
@@ -42,7 +41,8 @@ bool ArucoPoseEstimator::estimateCameraPose(const cv::Mat& _image, Camera& _out_
     std::vector<std::vector<cv::Point2f>> marker_corners, rejected_candidates;
 
     // Detect markers in the input image
-    cv::aruco::detectMarkers(_image, m_dictionary, marker_corners, marker_ids, m_detector_params, rejected_candidates);
+    cv::aruco::ArucoDetector detector(m_dictionary, m_detector_params);
+    detector.detectMarkers(_image, marker_corners, marker_ids, rejected_candidates);
 
     // No marker then false
     if (marker_ids.empty()) {
@@ -50,7 +50,7 @@ bool ArucoPoseEstimator::estimateCameraPose(const cv::Mat& _image, Camera& _out_
     }
 
     // Refine detected markers (helps with partial occlusion)
-    cv::aruco::refineDetectedMarkers(_image, m_board, marker_corners, marker_ids, rejected_candidates, m_camera_matrix, m_dist_coeffs);
+    detector.refineDetectedMarkers(_image, *m_board, marker_corners, marker_ids, rejected_candidates, m_camera_matrix, m_dist_coeffs);
 
     //compute the pose of the board
     cv::Vec3d rvec, tvec; 

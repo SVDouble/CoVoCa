@@ -1,4 +1,5 @@
 #include "PlanarHomographyExtractor.h"
+
 #include <opencv2/imgproc.hpp>
 #include <opencv2/calib3d.hpp>
 #include <iostream>
@@ -40,7 +41,7 @@ cv::Mat PlanarHomographyExtractor::extract(const cv::Mat& inputImage) {
   //detect markers in the input image
   std::vector<int> ids;
   std::vector<std::vector<cv::Point2f>> corners;
-  cv::aruco::detectMarkers(inputImage, m_dictionary, corners, ids);
+  cv::aruco::ArucoDetector(m_dictionary).detectMarkers(inputImage, corners, ids);
   std::cout << "[Planar] Detected " << ids.size() << " markers.\n";
 
   if (ids.size() < m_config.minMarkersRequired) {

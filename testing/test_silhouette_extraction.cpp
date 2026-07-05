@@ -33,7 +33,7 @@ int findArucoDictionary(const cv::Mat& boardImage) {
     auto dict = cv::aruco::getPredefinedDictionary(dictId);
     std::vector<int> ids;
     std::vector<std::vector<cv::Point2f>> corners;
-    cv::aruco::detectMarkers(boardImage, dict, corners, ids);
+    cv::aruco::ArucoDetector(dict).detectMarkers(boardImage, corners, ids);
 
     if (ids.size() > maxMarkers) {
       maxMarkers = ids.size();
@@ -68,8 +68,9 @@ std::unique_ptr<SilhouetteExtractor> createPlanarExtractor(
   config.arucoDictionaryId = dictId;
 
   auto dict = cv::aruco::getPredefinedDictionary(dictId);
-  cv::aruco::detectMarkers(config.referenceImage, dict,
-                           config.referenceCorners, config.referenceIds);
+  cv::aruco::ArucoDetector(dict).detectMarkers(config.referenceImage,
+                                               config.referenceCorners,
+                                               config.referenceIds);
 
   if (config.referenceIds.empty()) {
     std::cerr << "No markers detected.\n";

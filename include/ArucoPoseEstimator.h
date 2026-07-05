@@ -21,7 +21,7 @@ public:
    
     ArucoPoseEstimator(int _markers_x, int _markers_y, 
                        float _marker_length, float _marker_separation, 
-                       cv::aruco::PREDEFINED_DICTIONARY_NAME _dict_name);
+                       int _dict_name);
     
     // Set camera intrinsics and distortion coefficients
     void setIntrinsics(const cv::Mat& _camera_matrix, const cv::Mat& _dist_coeffs);
@@ -30,9 +30,9 @@ public:
     bool estimateCameraPose(const cv::Mat& _image, Camera& _out_camera);
 
 private:
-    cv::Ptr<cv::aruco::Dictionary> m_dictionary;
+    cv::aruco::Dictionary m_dictionary;
     cv::Ptr<cv::aruco::GridBoard> m_board;
-    cv::Ptr<cv::aruco::DetectorParameters> m_detector_params;
+    cv::aruco::DetectorParameters m_detector_params;
 
     cv::Mat m_camera_matrix;
     cv::Mat m_dist_coeffs;

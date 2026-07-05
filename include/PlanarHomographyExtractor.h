@@ -15,10 +15,9 @@ private:
   cv::Mat createMarkerMask(const cv::Size& size);
   cv::Mat createBoardMask(const cv::Size &size);
 
-      PlanarHomographyConfig m_config;
-  cv::Ptr<cv::aruco::Dictionary> m_dictionary;
+  PlanarHomographyConfig m_config;
+  cv::aruco::Dictionary m_dictionary;
   cv::Mat m_refGray;
   std::unordered_map<int, std::vector<cv::Point2f>> m_refMarkerCorners;
   cv::Mat m_boardMask;
 };
-

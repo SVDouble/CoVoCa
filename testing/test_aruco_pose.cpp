@@ -9,7 +9,7 @@ int main(int argc, char** argv) {
     int markers_y = 5;
     float marker_length = 0.0375f;
     float marker_separation = 0.005f;
-    cv::aruco::PREDEFINED_DICTIONARY_NAME dict_name = cv::aruco::DICT_6X6_1000;
+    int dict_name = cv::aruco::DICT_6X6_1000;
 
     ArucoPoseEstimator estimator(markers_x, markers_y, marker_length, marker_separation, dict_name);
 
@@ -56,9 +56,8 @@ int main(int argc, char** argv) {
         // --- Optional: Draw individual markers to match standard tutorials ---
         std::vector<int> marker_ids;
         std::vector<std::vector<cv::Point2f>> marker_corners, rejected;
-        cv::Ptr<cv::aruco::Dictionary> dict = cv::aruco::getPredefinedDictionary(dict_name);
-        cv::Ptr<cv::aruco::DetectorParameters> params = cv::aruco::DetectorParameters::create();
-        cv::aruco::detectMarkers(image, dict, marker_corners, marker_ids, params, rejected);
+        cv::aruco::Dictionary dict = cv::aruco::getPredefinedDictionary(dict_name);
+        cv::aruco::ArucoDetector(dict).detectMarkers(image, marker_corners, marker_ids, rejected);
         
         if (!marker_ids.empty()) {
             cv::aruco::drawDetectedMarkers(result_image, marker_corners, marker_ids);
