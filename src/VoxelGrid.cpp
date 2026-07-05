@@ -94,7 +94,7 @@ void VoxelGrid::saveVoxelGrid()
     file << "property float x\n";                        // vertexes defined by x,y,z position
     file << "property float y\n";
     file << "property float z\n";
-    file << "property uchar red\n";                      // RGB color properties
+    file << "property uchar red\n"; // RGB color properties
     file << "property uchar green\n";
     file << "property uchar blue\n";
     file << "end_header\n";
@@ -144,50 +144,37 @@ void VoxelGrid::saveHullMesh()
 
     if (!file.is_open())
     {
-        std::cerr
-            << "Cannot create voxel_hull.ply\n";
-
+        std::cerr << "Cannot create voxel_hull.ply\n";
         return;
     }
 
     // Containers
-
     std::vector<Eigen::Vector3d> vertices;
-
+    std::vector<Eigen::Vector3i> vertexColors;
     std::vector<Eigen::Vector3i> triangles;
 
     // Neighbor directions
-
     const Eigen::Vector3i directions[6] =
         {
             {-1, 0, 0},
             {1, 0, 0},
-
             {0, -1, 0},
             {0, 1, 0},
-
             {0, 0, -1},
             {0, 0, 1}};
 
     // Face definitions
-
     const int faceCorners[6][4] =
         {
             {0, 3, 7, 4}, // -X
-
             {1, 5, 6, 2}, // +X
-
             {0, 4, 5, 1}, // -Y
-
             {3, 2, 6, 7}, // +Y
-
             {0, 1, 2, 3}, // -Z
-
-            {4, 7, 6, 5} // +Z
+            {4, 7, 6, 5}  // +Z
         };
 
     // Iterate over all voxels
-
     for (int z = 0; z < m_size.z(); z++)
     {
         for (int y = 0; y < m_size.y(); y++)
@@ -199,140 +186,108 @@ void VoxelGrid::saveHullMesh()
                     continue;
                 }
 
-                // Retrieve voxel
-
                 int index = x + y * m_size.x() + z * m_size.x() * m_size.y();
 
                 const Voxel &voxel = m_voxel_flattened_matrix[index];
 
-                // Compute cube corners
-
                 Eigen::Vector3d center = voxel.getCartesianPos();
+                Eigen::Vector3i color = voxel.getColor();
 
                 Eigen::Vector3d half = m_step_size / 2.0;
 
                 std::vector<Eigen::Vector3d> corners(8);
 
                 corners[0] = center + Eigen::Vector3d(-half.x(), -half.y(), -half.z());
-
                 corners[1] = center + Eigen::Vector3d(half.x(), -half.y(), -half.z());
-
                 corners[2] = center + Eigen::Vector3d(half.x(), half.y(), -half.z());
-
                 corners[3] = center + Eigen::Vector3d(-half.x(), half.y(), -half.z());
 
                 corners[4] = center + Eigen::Vector3d(-half.x(), -half.y(), half.z());
-
                 corners[5] = center + Eigen::Vector3d(half.x(), -half.y(), half.z());
-
                 corners[6] = center + Eigen::Vector3d(half.x(), half.y(), half.z());
-
                 corners[7] = center + Eigen::Vector3d(-half.x(), half.y(), half.z());
 
-                // Check all 6 neighbors
-
+                // Check all six neighbors
                 for (int dir = 0; dir < 6; dir++)
                 {
                     int nx = x + directions[dir].x();
-
                     int ny = y + directions[dir].y();
-
                     int nz = z + directions[dir].z();
 
-                    // Internal face
-
+                    // Skip interior faces
                     if (isOccupied(nx, ny, nz))
                     {
                         continue;
                     }
 
-                    // Add exterior face
-
                     int c0 = faceCorners[dir][0];
-
                     int c1 = faceCorners[dir][1];
-
                     int c2 = faceCorners[dir][2];
-
                     int c3 = faceCorners[dir][3];
 
-                    int start = vertices.size();
+                    int start = static_cast<int>(vertices.size());
 
                     vertices.push_back(corners[c0]);
+                    vertexColors.push_back(color);
 
                     vertices.push_back(corners[c1]);
+                    vertexColors.push_back(color);
 
                     vertices.push_back(corners[c2]);
+                    vertexColors.push_back(color);
 
                     vertices.push_back(corners[c3]);
+                    vertexColors.push_back(color);
 
-                    triangles.emplace_back(
-                        start,
-                        start + 1,
-                        start + 2);
-
-                    triangles.emplace_back(
-                        start,
-                        start + 2,
-                        start + 3);
+                    triangles.emplace_back(start, start + 1, start + 2);
+                    triangles.emplace_back(start, start + 2, start + 3);
                 }
             }
         }
     }
 
     // PLY header
-
     file << "ply\n";
-
     file << "format ascii 1.0\n";
 
-    file << "element vertex "
-         << vertices.size()
-         << "\n";
-
+    file << "element vertex " << vertices.size() << "\n";
     file << "property float x\n";
-
     file << "property float y\n";
-
     file << "property float z\n";
+    file << "property uchar red\n";
+    file << "property uchar green\n";
+    file << "property uchar blue\n";
 
-    file << "element face "
-         << triangles.size()
-         << "\n";
-
+    file << "element face " << triangles.size() << "\n";
     file << "property list uchar int vertex_indices\n";
-
     file << "end_header\n";
 
-    // Write vertices
-
-    for (const auto &v : vertices)
+    // Write vertices and colors
+    for (size_t i = 0; i < vertices.size(); i++)
     {
-        file << v.x()
-             << " "
-             << v.y()
-             << " "
-             << v.z()
-             << "\n";
+        const auto &v = vertices[i];
+        const auto &c = vertexColors[i];
+
+        file << v.x() << " "
+             << v.y() << " "
+             << v.z() << " "
+             << c.x() << " "
+             << c.y() << " "
+             << c.z() << "\n";
     }
 
     // Write triangles
-
     for (const auto &t : triangles)
     {
         file << "3 "
-             << t.x()
-             << " "
-             << t.y()
-             << " "
-             << t.z()
-             << "\n";
+             << t.x() << " "
+             << t.y() << " "
+             << t.z() << "\n";
     }
 
     file.close();
 
-    std::cout
-        << "Saved "
-        << triangles.size()
-        << " triangles to voxel_hull.ply\n";
+    std::cout << "Saved "
+              << triangles.size()
+              << " triangles to voxel_hull.ply\n";
 }
