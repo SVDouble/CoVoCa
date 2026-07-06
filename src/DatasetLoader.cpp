@@ -3,7 +3,9 @@
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 #include <rfl/yaml.hpp>
@@ -16,13 +18,9 @@ constexpr std::array<const char *, 8> kImageExtensions = {
     ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".ppm", ".pgm"};
 
 struct Paths { fs::path images_dir; fs::path masks_dir; fs::path camera_file; };
-struct Grid { std::array<double, 3> min; std::array<double, 3> max; std::array<int, 3> resolution; };
-struct Color { std::string method; };
 
 struct Config {
     Paths paths;
-    Grid voxel_grid;
-    std::optional<Color> color;
     std::optional<int> foreground_threshold;
 };
 
@@ -119,17 +117,7 @@ LoadedDataset loadDataset(const fs::path &config_path)
         fail("invalid camera file");
     }
 
-    const auto &grid = config.voxel_grid;
-    LoadedDataset dataset{
-        config.color ? std::optional<std::string>(config.color->method) : std::nullopt,
-        VoxelGrid(Eigen::Vector3d(grid.min[0], grid.min[1], grid.min[2]),
-                  Eigen::Vector3d(grid.max[0], grid.max[1], grid.max[2]),
-                  Eigen::Vector3i(grid.resolution[0], grid.resolution[1], grid.resolution[2])),
-        {},
-        {},
-        {},
-    };
-
+    LoadedDataset dataset;
     dataset.cameras.reserve(static_cast<std::size_t>(camera_count));
     dataset.silhouettes.reserve(static_cast<std::size_t>(camera_count));
     dataset.color_images.reserve(static_cast<std::size_t>(camera_count));

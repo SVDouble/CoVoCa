@@ -15,7 +15,8 @@
 
 Grounding DINO finds one prompt-guided object box, then SAM 2.1 Large turns
 that box into a binary foreground mask. Each run writes to a new datetime-named
-folder and never replaces existing masks.
+folder and never replaces existing masks. Model weights are downloaded by the
+Python model libraries on first use.
 
 Usage:
     uv run --script --python 3.14 datasets/generate_masks.py --dataset cat
@@ -32,7 +33,7 @@ from PIL import Image
 
 DATASETS_ROOT = Path("local/datasets")
 OUTPUT_ROOT = Path("local/annotations/segmentation_masks")
-SAM_MODEL_PATH = Path("local/models/sam2.1_l.pt")
+SAM_MODEL = Path("local/models/sam2.1_l.pt")
 DETECTOR_MODEL = "IDEA-Research/grounding-dino-tiny"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 DEFAULT_PROMPTS = {
@@ -61,22 +62,21 @@ type Job = tuple[str, str, Path, str]
 class GroundedSegmenter:
     """Grounding DINO box detector plus SAM mask predictor."""
 
-    def __init__(self, detector_name: str, sam_path: Path, device: str) -> None:
+    def __init__(self, detector_name: str, sam_model: Path, device: str) -> None:
         import torch
         from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
         from ultralytics import SAM
 
-        if not sam_path.is_file():
-            raise FileNotFoundError(f"SAM model does not exist: {sam_path}")
         if device == "cuda" and not torch.cuda.is_available():
             raise RuntimeError("CUDA was requested but PyTorch cannot see a CUDA device")
+        sam_model.parent.mkdir(parents=True, exist_ok=True)
 
         self.torch = torch
         self.device = device
         self.sam_device = "cuda:0" if device == "cuda" else "cpu"
         self.processor = AutoProcessor.from_pretrained(detector_name)
         self.detector = AutoModelForZeroShotObjectDetection.from_pretrained(detector_name).to(device).eval()
-        self.segmenter = SAM(str(sam_path))
+        self.segmenter = SAM(str(sam_model))
 
     def detect(self, image: Image.Image, prompt: str, min_score: float, max_box_area: float) -> tuple[list[float], float]:
         inputs = self.processor(images=image, text=f"{prompt}.", return_tensors="pt").to(self.device)
@@ -161,12 +161,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--datasets-root", type=Path, default=DATASETS_ROOT)
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
-    parser.add_argument("--sam-model", type=Path, default=SAM_MODEL_PATH)
+    parser.add_argument("--sam-model", type=Path, default=SAM_MODEL)
     parser.add_argument("--detector", default=DETECTOR_MODEL)
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
     parser.add_argument("--min-score", type=float, default=0.25)
     parser.add_argument("--max-box-area", type=float, default=0.30)
-    parser.add_argument("--dataset", action="append", help="process only this dataset; repeat as needed")
+    parser.add_argument("--dataset", action="append", help="process only this dataset; omit to process all datasets")
     parser.add_argument("--exclude", action="append", default=[])
     parser.add_argument("--prompt", action="append", help="override or add a prompt as DATASET=TEXT")
     return parser.parse_args()

@@ -1,0 +1,6 @@
+build/
+local/
+voxel_grid.ply
+voxel_hull.ply
+*.pt
+annotations

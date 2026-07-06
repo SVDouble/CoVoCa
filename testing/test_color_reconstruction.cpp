@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
   std::cout << "Voxelgrid size: " << voxel_grid.getSize() << std::endl;
   std::cout << "Voxelgrid stepsize: " << voxel_grid.getStepSize() << std::endl;
 
-  std::string folder_images = "../dataset/dinoSparseRing/images";
+  std::string folder_images = "../datasets/dinoSparseRing/images";
   std::vector<cv::Mat> imageVector = loadImages(folder_images);
 
   // Extract silhouette (if needed)
@@ -85,10 +85,10 @@ int main(int argc, char** argv) {
     //silhouette_extractor.saveSilhouette(silhouette, filename);
   }
 
-  //std::string folder_masks = "../dataset/dinoSparseRing/masks";
+  //std::string folder_masks = "../datasets/dinoSparseRing/masks";
   //std::vector<cv::Mat> silhouette_vector = loadImages(folder_masks);
 
-  std::string camera_file = "../dataset/dinoSparseRing/dinoSR_par.txt";
+  std::string camera_file = "../datasets/dinoSparseRing/dinoSR_par.txt";
   camera_vector = loadCameras(camera_file);
 
   std::vector<View> views;

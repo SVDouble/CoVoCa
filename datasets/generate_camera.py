@@ -16,6 +16,7 @@ intrinsics from the available ArUco-board images, then writes:
 - `camera_intrinsics.yaml`: the shared calibrated camera profiles for the run.
 - `camera/intrinsics.yaml`: the camera profile used by that dataset.
 - `camera/poses.yaml`: board-to-camera extrinsics for each usable image.
+- `camera/cameras.txt`: flat camera file consumed by the C++ voxel-carving loader.
 
 Outputs go to a new datetime-named folder and never replace existing camera
 annotations. Pass `--shared-intrinsics` only when you want to reuse a previous
@@ -403,10 +404,7 @@ def detect_camera_data(
     frames = []
     rejected = []
     used_profiles: set[str] = set()
-    image_paths = sorted(
-        path for path in (dataset / "images").iterdir() if path.is_file() and path.suffix.casefold() in IMAGE_EXTENSIONS
-    )
-    for image_path in image_paths:
+    for image_path in image_paths(dataset):
         image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
         if image is None:
             rejected.append((image_path.name, "image could not be read"))
@@ -439,6 +437,21 @@ def detect_camera_data(
     )
 
 
+def write_loader_camera_file(path: Path, intrinsics: dict[str, Any], poses: dict[str, Any]) -> None:
+    """Write the flat camera format expected by src/DatasetLoader.cpp."""
+    frames = poses["frames"]
+    with path.open("w", encoding="utf-8") as stream:
+        stream.write(f"{len(frames)}\n")
+        for frame in frames:
+            profile = intrinsics["profiles"][frame["intrinsics_profile"]]
+            stream.write(f"{Path(frame['image']).name}\n")
+            for row in profile["matrix"]:
+                stream.write(" ".join(f"{float(value):.9g}" for value in row) + "\n")
+            for row in frame["rotation_board_to_camera"]:
+                stream.write(" ".join(f"{float(value):.9g}" for value in row) + "\n")
+            stream.write(" ".join(f"{float(value):.9g}" for value in frame["tvec_board_to_camera_m"]) + "\n")
+
+
 def create_run_dir(output_root: Path) -> Path:
     run_dir = output_root / datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -450,7 +463,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--datasets-root", type=Path, default=DATASETS_ROOT)
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
     parser.add_argument("--shared-intrinsics", type=Path, help="reuse a camera_intrinsics.yaml from an earlier run")
-    parser.add_argument("--dataset", action="append", help="process only this dataset; repeat as needed")
+    parser.add_argument("--dataset", action="append", help="process only this dataset; omit to process all datasets")
     parser.add_argument("--min-markers", type=int, default=4)
     parser.add_argument("--max-reprojection-error", type=float, default=12.0)
     return parser.parse_args()
@@ -498,6 +511,7 @@ def main() -> int:
         output = run_dir / dataset.name / "camera"
         write_yaml(output / "intrinsics.yaml", intrinsics)
         write_yaml(output / "poses.yaml", poses)
+        write_loader_camera_file(output / "cameras.txt", intrinsics, poses)
         summary = poses["summary"]
         print(
             f"{dataset.name}: {summary['accepted_frame_count']}/{summary['input_image_count']} poses, "

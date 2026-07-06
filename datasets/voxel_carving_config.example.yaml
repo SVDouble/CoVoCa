@@ -1,0 +1,12 @@
+schema: covoca.branch1.voxel_carving.v1
+name: my_dataset
+
+voxel_grid:
+  # Example bounds from the Middlebury dino dataset.
+  min: [-0.041897, 0.001126, -0.037845]
+  max: [0.030897, 0.088227, 0.035495]
+  resolution: [100, 100, 100]
+
+# Optional. Remove this section to skip color reconstruction.
+color:
+  method: average

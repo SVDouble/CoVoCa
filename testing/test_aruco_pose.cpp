@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
     estimator.setIntrinsics(camera_matrix, dist_coeffs);
 
     // 3. Load an image from the dataset
-    std::string image_path = "dataset/cat/images/photo_13_2026-06-12_21-24-45.jpg";
+    std::string image_path = "datasets/cat/images/photo_13_2026-06-12_21-24-45.jpg";
     cv::Mat image = cv::imread(image_path);
     if (image.empty()) {
         std::cerr << "Failed to load image: " << image_path << std::endl;
