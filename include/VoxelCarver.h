@@ -1,31 +1,24 @@
 #pragma once
 
 #include <vector>
-#include <opencv2/opencv.hpp>
 
-#include "VoxelGrid.h"
+#include "ObjectView.h"
 #include "Voxel.h"
-#include "Camera.h"
-#include "View.h"
+#include "VoxelGrid.h"
 
-class VoxelCarver
-{
+class VoxelCarver {
 public:
-    // Constructor
-    VoxelCarver(VoxelGrid _voxel_grid,
-                std::vector<cv::Mat> _silhouette_vector,
-                std::vector<Camera> _camera_vector,
-                std::vector<cv::Mat> _color_image_vector = {});
+  // Constructor
+  VoxelCarver(VoxelGrid _voxel_grid, std::vector<ObjectView> _views);
 
-    // Getters
-    const VoxelGrid &getVoxelGrid() const;
-    const std::vector<View> &getViewVector() const;
+  // Getters
+  const VoxelGrid &getVoxelGrid() const;
+  const std::vector<ObjectView> &getViews() const;
 
-    // Carving method
-    void carve();
+  // Carving method
+  void carve();
 
 private:
-    VoxelGrid m_voxel_grid;
-    std::vector<View> m_view_vector;
+  VoxelGrid m_voxel_grid;
+  std::vector<ObjectView> m_views;
 };
-

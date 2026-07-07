@@ -11,7 +11,7 @@
 #   "ultralytics==8.4.66",
 # ]
 # ///
-"""Generate foreground masks for the local object datasets.
+"""Generate foreground masks for local objects.
 
 Grounding DINO finds one prompt-guided object box, then SAM 2.1 Large turns
 that box into a binary foreground mask. Each run writes to a new datetime-named
@@ -19,7 +19,7 @@ folder and never replaces existing masks. Model weights are downloaded by the
 Python model libraries on first use.
 
 Usage:
-    uv run --script --python 3.14 datasets/generate_masks.py --dataset cat
+    uv run --script --python 3.14 datasets/generate_masks.py --object cat
     uv run --script --python 3.14 datasets/generate_masks.py --device cpu
 """
 
@@ -31,7 +31,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-DATASETS_ROOT = Path("local/datasets")
+OBJECTS_ROOT = Path("local/datasets")
 OUTPUT_ROOT = Path("local/annotations/segmentation_masks")
 SAM_MODEL = Path("local/models/sam2.1_l.pt")
 DETECTOR_MODEL = "IDEA-Research/grounding-dino-tiny"
@@ -136,10 +136,10 @@ class GroundedSegmenter:
 def prompt_map(overrides: list[str] | None) -> dict[str, str]:
     prompts = DEFAULT_PROMPTS.copy()
     for value in overrides or []:
-        dataset, separator, prompt = value.partition("=")
-        if not separator or not dataset or not prompt:
-            raise ValueError("--prompt must have the form DATASET=TEXT")
-        prompts[dataset] = prompt
+        object_name, separator, prompt = value.partition("=")
+        if not separator or not object_name or not prompt:
+            raise ValueError("--prompt must have the form OBJECT=TEXT")
+        prompts[object_name] = prompt
     return prompts
 
 
@@ -147,16 +147,18 @@ def discover_jobs(
     root: Path, selected: set[str] | None, excluded: set[str], prompts: dict[str, str]
 ) -> list[Job]:
     jobs: list[Job] = []
-    for dataset in sorted(root.iterdir(), key=lambda path: path.name.casefold()):
-        images_dir = dataset / "images"
+    for object_dir in sorted(root.iterdir(), key=lambda path: path.name.casefold()):
+        images_dir = object_dir / "images"
         if (
             not images_dir.is_dir()
-            or dataset.name in excluded
-            or (selected and dataset.name not in selected)
+            or object_dir.name in excluded
+            or (selected and object_dir.name not in selected)
         ):
             continue
-        if dataset.name not in prompts:
-            raise ValueError(f"No text prompt configured for dataset {dataset.name!r}")
+        if object_dir.name not in prompts:
+            raise ValueError(
+                f"No text prompt configured for object {object_dir.name!r}"
+            )
         for image_path in sorted(
             images_dir.iterdir(), key=lambda path: path.name.casefold()
         ):
@@ -166,14 +168,14 @@ def discover_jobs(
             ):
                 jobs.append(
                     (
-                        dataset.name,
-                        prompts[dataset.name],
+                        object_dir.name,
+                        prompts[object_dir.name],
                         image_path,
                         f"{image_path.stem}.png",
                     )
                 )
 
-    outputs = Counter((dataset, mask_name) for dataset, _, _, mask_name in jobs)
+    outputs = Counter((object_name, mask_name) for object_name, _, _, mask_name in jobs)
     duplicates = [str(path) for path, count in outputs.items() if count > 1]
     if duplicates:
         raise ValueError(
@@ -201,7 +203,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--datasets-root", type=Path, default=DATASETS_ROOT)
+    parser.add_argument(
+        "--objects-root",
+        type=Path,
+        default=OBJECTS_ROOT,
+        help="root containing one subfolder per object",
+    )
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
     parser.add_argument("--sam-model", type=Path, default=SAM_MODEL)
     parser.add_argument("--detector", default=DETECTOR_MODEL)
@@ -209,13 +216,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-score", type=float, default=0.25)
     parser.add_argument("--max-box-area", type=float, default=0.30)
     parser.add_argument(
-        "--dataset",
+        "--object",
         action="append",
-        help="process only this dataset; omit to process all datasets",
+        help="process only this object; omit to process all objects",
     )
     parser.add_argument("--exclude", action="append", default=[])
     parser.add_argument(
-        "--prompt", action="append", help="override or add a prompt as DATASET=TEXT"
+        "--prompt", action="append", help="override or add a prompt as OBJECT=TEXT"
     )
     return parser.parse_args()
 
@@ -226,37 +233,37 @@ def main() -> int:
         raise ValueError("Score and area limits must be between zero and one")
 
     jobs = discover_jobs(
-        args.datasets_root,
-        set(args.dataset) if args.dataset else None,
+        args.objects_root,
+        set(args.object) if args.object else None,
         set(args.exclude),
         prompt_map(args.prompt),
     )
     if not jobs:
-        raise FileNotFoundError("No dataset images matched the requested selection")
+        raise FileNotFoundError("No object images matched the requested selection")
 
     model = GroundedSegmenter(args.detector, args.sam_model, args.device)
     stats: dict[str, list[tuple[float, float]]] = {}
     run_dir = create_run_dir(args.output_root)
     print(f"Writing masks to {run_dir}")
-    for index, (dataset, prompt, source, mask_name) in enumerate(jobs, 1):
+    for index, (object_name, prompt, source, mask_name) in enumerate(jobs, 1):
         with Image.open(source) as image:
             rgb = image.convert("RGB")
             box, score = model.detect(rgb, prompt, args.min_score, args.max_box_area)
             mask = model.segment(source, box)
             area = validate(mask, image, source)
-        target = run_dir / dataset / "masks" / mask_name
+        target = run_dir / object_name / "masks" / mask_name
         target.parent.mkdir(parents=True, exist_ok=True)
         mask.save(target, optimize=True)
-        stats.setdefault(dataset, []).append((score, area))
+        stats.setdefault(object_name, []).append((score, area))
         print(
-            f"[{index}/{len(jobs)}] {dataset}/{source.name} score={score:.3f} area={area:.1%}",
+            f"[{index}/{len(jobs)}] {object_name}/{source.name} score={score:.3f} area={area:.1%}",
             flush=True,
         )
 
-    for dataset, values in stats.items():
+    for object_name, values in stats.items():
         scores, areas = zip(*values, strict=True)
         print(
-            f"{dataset}: {len(values)} masks, score {min(scores):.3f}-{max(scores):.3f}, "
+            f"{object_name}: {len(values)} masks, score {min(scores):.3f}-{max(scores):.3f}, "
             f"area {min(areas):.1%}-{max(areas):.1%}"
         )
     print(f"Generated {len(jobs)} masks with Grounding DINO and SAM 2.1 Large")

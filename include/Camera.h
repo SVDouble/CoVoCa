@@ -2,50 +2,48 @@
 
 #include <Eigen/Dense>
 
-class Camera
-{
+class Camera {
 public:
-    // Constructors
-    Camera();
+  // Constructors
+  Camera();
 
-    Camera(const Eigen::Matrix3d &_K,
-           const Eigen::Matrix3d &_R,
-           const Eigen::Vector3d &_t);
+  Camera(const Eigen::Matrix3d &_K, const Eigen::Matrix3d &_R,
+         const Eigen::Vector3d &_t);
 
-    // Setters
-    void setIntrinsics(const Eigen::Matrix3d &_K);
-    void setRotation(const Eigen::Matrix3d &_R);
-    void setTranslation(const Eigen::Vector3d &_t);
+  // Setters
+  void setIntrinsics(const Eigen::Matrix3d &_K);
+  void setRotation(const Eigen::Matrix3d &_R);
+  void setTranslation(const Eigen::Vector3d &_t);
 
-    // Getters
-    const Eigen::Matrix3d &getIntrinsics() const;
-    const Eigen::Matrix3d &getRotation() const;
-    const Eigen::Vector3d &getTranslation() const;
-    const Eigen::Matrix<double, 3, 4> &getProjectionMatrix() const;
+  // Getters
+  const Eigen::Matrix3d &getIntrinsics() const;
+  const Eigen::Matrix3d &getRotation() const;
+  const Eigen::Vector3d &getTranslation() const;
+  const Eigen::Matrix<double, 3, 4> &getProjectionMatrix() const;
 
-    // Camera center in world coordinates
-    Eigen::Vector3d getCameraCenter() const;
+  // Camera center in world coordinates
+  Eigen::Vector3d getCameraCenter() const;
 
-    // World -> Camera coordinates
-    Eigen::Vector3d worldToCamera(const Eigen::Vector3d &_point_world) const;
+  // World -> Camera coordinates
+  Eigen::Vector3d worldToCamera(const Eigen::Vector3d &_point_world) const;
 
-    // Camera -> World coordinates
-    Eigen::Vector3d cameraToWorld(const Eigen::Vector3d &_point_camera) const;
+  // Camera -> World coordinates
+  Eigen::Vector3d cameraToWorld(const Eigen::Vector3d &_point_camera) const;
 
-    // Project a 3D world point to image pixel coordinates
-    Eigen::Vector2d projectPoint(const Eigen::Vector3d &_point_world) const;
-
-private:
-    void updateProjectionMatrix();
+  // Project a 3D world point to image pixel coordinates
+  Eigen::Vector2d projectPoint(const Eigen::Vector3d &_point_world) const;
 
 private:
-    // Intrinsics
-    Eigen::Matrix3d m_K;
+  void updateProjectionMatrix();
 
-    // Extrinsics (world -> camera)
-    Eigen::Matrix3d m_R;
-    Eigen::Vector3d m_t;
+private:
+  // Intrinsics
+  Eigen::Matrix3d m_K;
 
-    // Projection matrix
-    Eigen::Matrix<double, 3, 4> m_P;
+  // Extrinsics (world -> camera)
+  Eigen::Matrix3d m_R;
+  Eigen::Vector3d m_t;
+
+  // Projection matrix
+  Eigen::Matrix<double, 3, 4> m_P;
 };

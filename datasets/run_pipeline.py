@@ -5,6 +5,7 @@
 """Prepare missing assets, create configs, then run voxel carving."""
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -15,10 +16,10 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
-from create_loader_config import write_configs
+from create_loader_config import BatchObjectConfig, write_batch_config, write_configs
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASETS = Path("local/datasets")
+OBJECTS_ROOT = Path("local/datasets")
 DOWNLOADS = Path("local/downloads")
 MASKS = Path("local/annotations/segmentation_masks")
 CAMERAS = Path("local/annotations/camera")
@@ -27,6 +28,7 @@ RESULTS = Path("local/results")
 UV = ["uv", "run", "--script", "--python", "3.14"]
 UA = {"User-Agent": "CoVoCa dataset pipeline"}
 COLOR_METHODS = ("average", "best_view", "weighted_average", "median")
+DEFAULT_WORKERS = min(4, os.cpu_count() or 1)
 
 
 def full(path: Path) -> Path:
@@ -101,21 +103,21 @@ def unpack(archive: Path, root: Path) -> list[str]:
             ),
             tmp,
         )
-        datasets = (
+        objects = (
             [source]
             if (source / "images").is_dir()
             else [path for path in source.iterdir() if (path / "images").is_dir()]
         )
-        if not datasets:
-            raise ValueError("Archive did not contain dataset folders with images/")
+        if not objects:
+            raise ValueError("Archive did not contain object folders with images/")
         root.mkdir(parents=True, exist_ok=True)
-        for dataset in datasets:
-            shutil.copytree(dataset, root / dataset.name, dirs_exist_ok=True)
-            print(f"Installed {dataset.name} -> {root / dataset.name}")
-        return sorted(path.name for path in datasets)
+        for object_dir in objects:
+            shutil.copytree(object_dir, root / object_dir.name, dirs_exist_ok=True)
+            print(f"Installed {object_dir.name} -> {root / object_dir.name}")
+        return sorted(path.name for path in objects)
 
 
-def datasets(root: Path, selected: list[str] | None) -> list[str]:
+def objects(root: Path, selected: list[str] | None) -> list[str]:
     keep = set(selected or [])
     names = sorted(
         path.name
@@ -124,32 +126,32 @@ def datasets(root: Path, selected: list[str] | None) -> list[str]:
     )
     names = [name for name in names if not keep or name in keep]
     if not names:
-        raise FileNotFoundError(f"No datasets with images/ found under {root}")
+        raise FileNotFoundError(f"No object folders with images/ found under {root}")
     return names
 
 
-def selected_dataset_args(names: list[str]) -> list[object]:
-    return [item for name in names for item in ("--dataset", name)]
+def selected_object_args(names: list[str]) -> list[object]:
+    return [item for name in names for item in ("--object", name)]
 
 
-def image_stems(dataset: Path) -> set[str]:
+def image_stems(object_dir: Path) -> set[str]:
     image_extensions = {".jpg", ".jpeg", ".png", ".webp"}
     return {
         path.stem
-        for path in (dataset / "images").iterdir()
+        for path in (object_dir / "images").iterdir()
         if path.is_file() and path.suffix.casefold() in image_extensions
     }
 
 
-def has_masks(dataset: Path) -> bool:
-    masks = dataset / "masks"
+def has_masks(object_dir: Path) -> bool:
+    masks = object_dir / "masks"
     return masks.is_dir() and all(
-        (masks / f"{stem}.png").is_file() for stem in image_stems(dataset)
+        (masks / f"{stem}.png").is_file() for stem in image_stems(object_dir)
     )
 
 
-def has_camera(dataset: Path) -> bool:
-    camera = dataset / "camera"
+def has_camera(object_dir: Path) -> bool:
+    camera = object_dir / "camera"
     return (camera / "intrinsics.yaml").is_file() and (camera / "poses.yaml").is_file()
 
 
@@ -162,18 +164,18 @@ def install_tree(source: Path, target: Path) -> None:
 
 
 def prepare_download(
-    args: argparse.Namespace, downloads_root: Path, datasets_root: Path
+    args: argparse.Namespace, downloads_root: Path, objects_root: Path
 ) -> None:
     if args.dataset_url and args.archive:
         raise ValueError("Use either --dataset-url or --archive, not both")
     if args.dataset_url:
-        unpack(download(args.dataset_url, downloads_root), datasets_root)
+        unpack(download(args.dataset_url, downloads_root), objects_root)
     elif args.archive:
-        unpack(full(args.archive), datasets_root)
+        unpack(full(args.archive), objects_root)
 
 
 def generate_and_install_masks(
-    args: argparse.Namespace, datasets_root: Path, masks_root: Path, names: list[str]
+    args: argparse.Namespace, objects_root: Path, masks_root: Path, names: list[str]
 ) -> None:
     if not names:
         return
@@ -186,15 +188,15 @@ def generate_and_install_masks(
         return [
             *UV,
             "datasets/generate_masks.py",
-            "--datasets-root",
-            datasets_root,
+            "--objects-root",
+            objects_root,
             "--output-root",
             masks_root,
             "--device",
             device,
             "--sam-model",
             full(args.sam_model),
-            *selected_dataset_args(names),
+            *selected_object_args(names),
             *prompt_args,
         ]
 
@@ -207,12 +209,12 @@ def generate_and_install_masks(
         run_dir = output(run(mask_cmd("cpu")))
 
     for name in names:
-        install_tree(run_dir / name / "masks", datasets_root / name / "masks")
+        install_tree(run_dir / name / "masks", objects_root / name / "masks")
 
 
 def generate_and_install_camera(
     args: argparse.Namespace,
-    datasets_root: Path,
+    objects_root: Path,
     cameras_root: Path,
     names: list[str],
 ) -> None:
@@ -229,22 +231,22 @@ def generate_and_install_camera(
             [
                 *UV,
                 "datasets/generate_camera.py",
-                "--datasets-root",
-                datasets_root,
+                "--objects-root",
+                objects_root,
                 "--output-root",
                 cameras_root,
                 *shared_intrinsics,
-                *selected_dataset_args(names),
+                *selected_object_args(names),
             ]
         )
     )
     for name in names:
-        install_tree(run_dir / name / "camera", datasets_root / name / "camera")
+        install_tree(run_dir / name / "camera", objects_root / name / "camera")
 
 
 def prepare_assets(
     args: argparse.Namespace,
-    datasets_root: Path,
+    objects_root: Path,
     masks_root: Path,
     cameras_root: Path,
     names: list[str],
@@ -252,31 +254,31 @@ def prepare_assets(
     mask_targets = [
         name
         for name in names
-        if args.regenerate_masks or not has_masks(datasets_root / name)
+        if args.regenerate_masks or not has_masks(objects_root / name)
     ]
     camera_targets = [
         name
         for name in names
-        if args.regenerate_camera or not has_camera(datasets_root / name)
+        if args.regenerate_camera or not has_camera(objects_root / name)
     ]
 
     if mask_targets:
         print("Generating masks for: " + ", ".join(mask_targets), flush=True)
-        generate_and_install_masks(args, datasets_root, masks_root, mask_targets)
+        generate_and_install_masks(args, objects_root, masks_root, mask_targets)
     else:
-        print("Using existing masks from local/datasets", flush=True)
+        print("Using existing masks from object folders", flush=True)
 
     if camera_targets:
         print("Generating camera YAML for: " + ", ".join(camera_targets), flush=True)
-        generate_and_install_camera(args, datasets_root, cameras_root, camera_targets)
+        generate_and_install_camera(args, objects_root, cameras_root, camera_targets)
     else:
-        print("Using existing camera YAML from local/datasets", flush=True)
+        print("Using existing camera YAML from object folders", flush=True)
 
     missing = [
-        f"{name}: masks/" for name in names if not has_masks(datasets_root / name)
+        f"{name}: masks/" for name in names if not has_masks(objects_root / name)
     ]
     missing += [
-        f"{name}: camera/" for name in names if not has_camera(datasets_root / name)
+        f"{name}: camera/" for name in names if not has_camera(objects_root / name)
     ]
     if missing:
         raise FileNotFoundError(
@@ -286,18 +288,21 @@ def prepare_assets(
 
 
 def create_loader_configs(
-    args: argparse.Namespace, datasets_root: Path, configs_root: Path, names: list[str]
+    args: argparse.Namespace,
+    objects_root: Path,
+    configs_root: Path,
+    results_run: Path,
+    names: list[str],
 ) -> None:
     for name in names:
-        dataset_config = configs_root / f"{name}.dataset.yaml"
+        object_config = configs_root / f"{name}.object.yaml"
         voxel_config = configs_root / f"{name}.voxel_carving.yaml"
         write_configs(
-            dataset=name,
-            datasets_root=datasets_root,
-            masks_root=datasets_root,
-            camera_root=datasets_root,
-            dataset_config=dataset_config,
+            object_name=name,
+            objects_root=objects_root,
+            object_config=object_config,
             voxel_config=voxel_config,
+            output_dir=results_run / name,
             foreground_threshold=1,
             volume_min=args.volume_min,
             volume_max=args.volume_max,
@@ -305,22 +310,8 @@ def create_loader_configs(
             color_methods=args.color_methods,
             no_color=args.no_color,
         )
-        print(f"Wrote {dataset_config}")
+        print(f"Wrote {object_config}")
         print(f"Wrote {voxel_config}")
-
-
-def run_voxel_carving(
-    binary: Path, configs_root: Path, result: Path, name: str
-) -> None:
-    dataset_config = configs_root / f"{name}.dataset.yaml"
-    voxel_config = configs_root / f"{name}.voxel_carving.yaml"
-    shutil.copy2(dataset_config, result / "dataset.yaml")
-    shutil.copy2(voxel_config, result / "voxel_carving.yaml")
-    run(
-        [binary, dataset_config.resolve(), voxel_config.resolve()],
-        cwd=result,
-        log=result / "voxel_carving.log",
-    )
 
 
 def vertices(path: Path) -> int:
@@ -352,22 +343,55 @@ def build_binary(args: argparse.Namespace, build_dir: Path) -> Path:
 def run_reconstructions(
     args: argparse.Namespace,
     binary: Path,
-    datasets_root: Path,
+    objects_root: Path,
     configs_root: Path,
-    results_root: Path,
+    results_run: Path,
     names: list[str],
 ) -> Path:
-    results_run = results_root / datetime.now().strftime("%Y%m%d_%H%M%S")
+    batch_objects: list[BatchObjectConfig] = []
+
     for name in names:
         result = results_run / name
         result.mkdir(parents=True, exist_ok=True)
         shutil.copytree(
-            datasets_root / name / "masks", result / "masks", dirs_exist_ok=True
+            objects_root / name / "masks", result / "masks", dirs_exist_ok=True
         )
         shutil.copytree(
-            datasets_root / name / "camera", result / "camera", dirs_exist_ok=True
+            objects_root / name / "camera", result / "camera", dirs_exist_ok=True
         )
-        run_voxel_carving(binary, configs_root, result, name)
+
+        object_config = configs_root / f"{name}.object.yaml"
+        voxel_config = configs_root / f"{name}.voxel_carving.yaml"
+        shutil.copy2(object_config, result / "object.yaml")
+        shutil.copy2(voxel_config, result / "voxel_carving.yaml")
+        batch_objects.append(
+            BatchObjectConfig(
+                name=name,
+                object_config=object_config,
+                volume_min=args.volume_min,
+                volume_max=args.volume_max,
+                resolution=args.resolution,
+                color_methods=args.color_methods,
+                no_color=args.no_color,
+            )
+        )
+
+    batch_config = results_run / "voxel_carving_batch.yaml"
+    # Run the C++ binary once; it distributes objects according to workers.
+    write_batch_config(
+        batch_config=batch_config,
+        output_dir=results_run,
+        workers=args.workers,
+        objects=batch_objects,
+    )
+    run(
+        [binary, batch_config.resolve()],
+        cwd=ROOT,
+        log=results_run / "voxel_carving.log",
+    )
+
+    for name in names:
+        result = results_run / name
         for voxel_grid in voxel_grid_outputs(args, result):
             if vertices(voxel_grid) == 0:
                 raise RuntimeError(
@@ -389,11 +413,16 @@ def parse_args() -> argparse.Namespace:
         help="extract this already downloaded zip/tar archive first",
     )
     parser.add_argument(
-        "--dataset",
+        "--object",
         action="append",
-        help="process only this dataset; omit to process all datasets",
+        help="process only this object; omit to process all objects",
     )
-    parser.add_argument("--datasets-root", type=Path, default=DATASETS)
+    parser.add_argument(
+        "--objects-root",
+        type=Path,
+        default=OBJECTS_ROOT,
+        help="root containing one subfolder per object",
+    )
     parser.add_argument("--downloads-root", type=Path, default=DOWNLOADS)
     parser.add_argument("--results-root", type=Path, default=RESULTS)
     parser.add_argument("--masks-root", type=Path, default=MASKS)
@@ -401,19 +430,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--regenerate-masks",
         action="store_true",
-        help="replace existing local/datasets masks",
+        help="replace existing masks under the object folders",
     )
     parser.add_argument(
         "--regenerate-camera",
         action="store_true",
-        help="replace existing local/datasets camera YAML",
+        help="replace existing camera YAML under the object folders",
     )
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
     parser.add_argument(
         "--sam-model", type=Path, default=Path("local/models/sam2.1_l.pt")
     )
     parser.add_argument(
-        "--prompt", action="append", help="mask prompt override as DATASET=TEXT"
+        "--prompt", action="append", help="mask prompt override as OBJECT=TEXT"
     )
     parser.add_argument(
         "--shared-intrinsics",
@@ -431,25 +460,34 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-color", action="store_true")
     parser.add_argument("--build-dir", type=Path, default=Path("build"))
     parser.add_argument("--skip-build", action="store_true")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help="number of objects to carve in parallel",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    datasets_root, downloads_root, results_root, build_dir = map(
+    if args.workers < 1:
+        raise ValueError("--workers must be at least 1")
+    objects_root, downloads_root, results_root, build_dir = map(
         full,
-        (args.datasets_root, args.downloads_root, args.results_root, args.build_dir),
+        (args.objects_root, args.downloads_root, args.results_root, args.build_dir),
     )
     masks_root, cameras_root = map(full, (args.masks_root, args.camera_root))
     configs_root = full(CONFIGS)
 
-    prepare_download(args, downloads_root, datasets_root)
-    names = datasets(datasets_root, args.dataset)
-    prepare_assets(args, datasets_root, masks_root, cameras_root, names)
-    create_loader_configs(args, datasets_root, configs_root, names)
+    prepare_download(args, downloads_root, objects_root)
+    names = objects(objects_root, args.object)
+    prepare_assets(args, objects_root, masks_root, cameras_root, names)
+    results_run = results_root / datetime.now().strftime("%Y%m%d_%H%M%S")
+    create_loader_configs(args, objects_root, configs_root, results_run, names)
     binary = build_binary(args, build_dir)
     results_run = run_reconstructions(
-        args, binary, datasets_root, configs_root, results_root, names
+        args, binary, objects_root, configs_root, results_run, names
     )
 
     print(f"Pipeline output: {results_run}")

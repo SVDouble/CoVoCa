@@ -8,13 +8,13 @@
 #   "pyyaml==6.0.3",
 # ]
 # ///
-"""Generate camera intrinsics and per-image poses for local datasets.
+"""Generate camera intrinsics and per-image poses for local objects.
 
-For each selected dataset under `local/datasets`, this calibrates camera
+For each selected object under the objects root, this calibrates camera
 intrinsics from the available ArUco-board images, then writes:
 
 - `camera_intrinsics.yaml`: the shared calibrated camera profiles for the run.
-- `camera/intrinsics.yaml`: the camera profile used by that dataset.
+- `camera/intrinsics.yaml`: the camera profile used by that object.
 - `camera/poses.yaml`: board-to-camera extrinsics for each usable image.
 
 Outputs go to a new datetime-named folder and never replace existing camera
@@ -23,7 +23,7 @@ calibration instead of deriving one from the images.
 
 Usage:
     uv run --script --python 3.14 datasets/generate_camera.py
-    uv run --script --python 3.14 datasets/generate_camera.py --dataset cat
+    uv run --script --python 3.14 datasets/generate_camera.py --object cat
     uv run --script --python 3.14 datasets/generate_camera.py --shared-intrinsics local/dataset_metadata/camera_intrinsics.yaml
 """
 
@@ -36,7 +36,7 @@ import numpy as np
 import yaml
 from PIL import Image
 
-DATASETS_ROOT = Path("local/datasets")
+OBJECTS_ROOT = Path("local/datasets")
 OUTPUT_ROOT = Path("local/annotations/camera")
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 CAMERA_NAME = "pixel7"
@@ -79,18 +79,18 @@ def image_size(path: Path) -> tuple[int, int] | None:
         return None
 
 
-def image_paths(dataset: Path) -> list[Path]:
+def image_paths(object_dir: Path) -> list[Path]:
     return sorted(
         path
-        for path in (dataset / "images").iterdir()
+        for path in (object_dir / "images").iterdir()
         if path.is_file() and path.suffix.casefold() in IMAGE_EXTENSIONS
     )
 
 
-def target_sizes(datasets: list[Path]) -> list[tuple[int, int]]:
+def target_sizes(objects: list[Path]) -> list[tuple[int, int]]:
     sizes = set()
-    for dataset in datasets:
-        for path in image_paths(dataset):
+    for object_dir in objects:
+        for path in image_paths(object_dir):
             size = image_size(path)
             if size:
                 width, height = size
@@ -117,14 +117,14 @@ def aruco_detector(cv2: Any, window: int) -> tuple[Any, Any]:
 
 
 def collect_calibration_views(
-    cv2: Any, datasets: list[Path], target: tuple[int, int], window: int
+    cv2: Any, objects: list[Path], target: tuple[int, int], window: int
 ) -> list[dict[str, Any]]:
     detector, board = aruco_detector(cv2, window)
     portrait = (target[1], target[0])
     views = []
-    for dataset in datasets:
+    for object_dir in objects:
         kept = 0
-        for path in image_paths(dataset):
+        for path in image_paths(object_dir):
             size = image_size(path)
             if size is None or (max(size), min(size)) != target:
                 continue
@@ -143,7 +143,7 @@ def collect_calibration_views(
                 continue
             views.append(
                 {
-                    "dataset": dataset.name,
+                    "object": object_dir.name,
                     "image": path.name,
                     "markers": int(len(ids)),
                     "object_points": object_points.astype(np.float32),
@@ -153,7 +153,7 @@ def collect_calibration_views(
             kept += 1
         if kept:
             print(
-                f"  {target[0]}x{target[1]} {dataset.name}: {kept} calibration views",
+                f"  {target[0]}x{target[1]} {object_dir.name}: {kept} calibration views",
                 flush=True,
             )
     return views
@@ -252,11 +252,11 @@ def portrait_profile(
     }
 
 
-def calibrate_shared_intrinsics(cv2: Any, datasets: list[Path]) -> dict[str, Any]:
+def calibrate_shared_intrinsics(cv2: Any, objects: list[Path]) -> dict[str, Any]:
     profiles = {}
     methods = []
-    for size in target_sizes(datasets):
-        views = collect_calibration_views(cv2, datasets, size, CORNER_REFINEMENT_WINDOW)
+    for size in target_sizes(objects):
+        views = collect_calibration_views(cv2, objects, size, CORNER_REFINEMENT_WINDOW)
         views = [view for view in views if view["markers"] >= CALIBRATION_MIN_MARKERS]
         if len(views) < 3:
             print(
@@ -273,7 +273,7 @@ def calibrate_shared_intrinsics(cv2: Any, datasets: list[Path]) -> dict[str, Any
             "height": size[1],
             "matrix": rounded_matrix(result["matrix"]),
             "distortion_coefficients": rounded_vector(result["dist"]),
-            "source_session_count": len({view["dataset"] for view in result["views"]}),
+            "source_object_count": len({view["object"] for view in result["views"]}),
             "accepted_frame_count": len(result["views"]),
             "rms_reprojection_error_px": final["rms_px"],
             "median_reprojection_error_px": final["median_px"],
@@ -291,7 +291,7 @@ def calibrate_shared_intrinsics(cv2: Any, datasets: list[Path]) -> dict[str, Any
     return {
         "schema": "covoca.camera_intrinsics.v1",
         "camera": {"make": CAMERA_MAKE, "model": CAMERA_MODEL},
-        "method": "ArUco GridBoard calibration from dataset images. "
+        "method": "ArUco GridBoard calibration from object images. "
         + "; ".join(methods),
         "profiles": profiles,
     }
@@ -391,7 +391,7 @@ def detect_pose(
 
 
 def pose_document(
-    dataset: str,
+    object_name: str,
     board: dict[str, Any],
     frames: list[dict[str, Any]],
     rejected: list[tuple[str, str]],
@@ -401,7 +401,7 @@ def pose_document(
     errors = [frame["mean_reprojection_error_px"] for frame in frames]
     return {
         "schema": "covoca.camera_poses.v1",
-        "dataset": dataset,
+        "object": object_name,
         "intrinsics_file": "intrinsics.yaml",
         "method": method,
         "coordinate_system": {
@@ -432,7 +432,7 @@ def pose_document(
 
 def detect_camera_data(
     cv2: Any,
-    dataset: Path,
+    object_dir: Path,
     shared: dict[str, Any],
     source_label: str,
     min_markers: int,
@@ -453,7 +453,7 @@ def detect_camera_data(
     frames = []
     rejected = []
     used_profiles: set[str] = set()
-    for image_path in image_paths(dataset):
+    for image_path in image_paths(object_dir):
         image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
         if image is None:
             rejected.append((image_path.name, "image could not be read"))
@@ -479,17 +479,17 @@ def detect_camera_data(
             )
 
     if not frames:
-        raise RuntimeError(f"No camera poses could be estimated for {dataset.name}")
+        raise RuntimeError(f"No camera poses could be estimated for {object_dir.name}")
     intrinsics = {
         "schema": shared["schema"],
-        "dataset": dataset.name,
+        "object": object_dir.name,
         "camera": shared.get("camera"),
         "method": shared["method"],
         "source": source_label,
         "profiles": {name: profiles[name] for name in sorted(used_profiles)},
     }
     return intrinsics, pose_document(
-        dataset.name,
+        object_dir.name,
         BOARD,
         frames,
         rejected,
@@ -507,7 +507,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--datasets-root", type=Path, default=DATASETS_ROOT)
+    parser.add_argument(
+        "--objects-root",
+        type=Path,
+        default=OBJECTS_ROOT,
+        help="root containing one subfolder per object",
+    )
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
     parser.add_argument(
         "--shared-intrinsics",
@@ -515,9 +520,9 @@ def parse_args() -> argparse.Namespace:
         help="reuse a camera_intrinsics.yaml from an earlier run",
     )
     parser.add_argument(
-        "--dataset",
+        "--object",
         action="append",
-        help="process only this dataset; omit to process all datasets",
+        help="process only this object; omit to process all objects",
     )
     parser.add_argument("--min-markers", type=int, default=4)
     parser.add_argument("--max-reprojection-error", type=float, default=12.0)
@@ -531,17 +536,17 @@ def main() -> int:
 
     import cv2
 
-    selected = set(args.dataset) if args.dataset else None
-    datasets = sorted(
+    selected = set(args.object) if args.object else None
+    objects = sorted(
         path
-        for path in args.datasets_root.iterdir()
+        for path in args.objects_root.iterdir()
         if path.is_dir()
         and (path / "images").is_dir()
         and (selected is None or path.name in selected)
     )
-    if not datasets:
+    if not objects:
         raise FileNotFoundError(
-            "No datasets with images/ matched the requested selection"
+            "No object folders with images/ matched the requested selection"
         )
 
     run_dir = create_run_dir(args.output_root)
@@ -553,28 +558,28 @@ def main() -> int:
         shared = load_yaml(args.shared_intrinsics)
         source_label = str(args.shared_intrinsics)
     else:
-        print("Calibrating shared camera intrinsics from dataset images", flush=True)
-        shared = calibrate_shared_intrinsics(cv2, datasets)
+        print("Calibrating shared camera intrinsics from object images", flush=True)
+        shared = calibrate_shared_intrinsics(cv2, objects)
         write_yaml(run_dir / "camera_intrinsics.yaml", shared)
         source_label = "../../camera_intrinsics.yaml"
 
     print(f"Writing camera annotations to {run_dir}", flush=True)
-    for dataset in datasets:
+    for object_dir in objects:
         intrinsics, poses = detect_camera_data(
             cv2,
-            dataset,
+            object_dir,
             shared,
             source_label,
             args.min_markers,
             args.max_reprojection_error,
         )
 
-        output = run_dir / dataset.name / "camera"
+        output = run_dir / object_dir.name / "camera"
         write_yaml(output / "intrinsics.yaml", intrinsics)
         write_yaml(output / "poses.yaml", poses)
         summary = poses["summary"]
         print(
-            f"{dataset.name}: {summary['accepted_frame_count']}/{summary['input_image_count']} poses, "
+            f"{object_dir.name}: {summary['accepted_frame_count']}/{summary['input_image_count']} poses, "
             f"mean={summary['mean_reprojection_error_px']} px, max={summary['max_reprojection_error_px']} px",
             flush=True,
         )

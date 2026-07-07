@@ -262,15 +262,15 @@ def render_mesh_tile(
 
 
 def column_data(
-    dataset_dir: Path, tile_size: tuple[int, int], margin: float
+    object_dir: Path, tile_size: tuple[int, int], margin: float
 ) -> list[TileColumn]:
-    views = read_camera_dir(dataset_dir / "camera")
-    images_dir = dataset_dir / "images"
+    views = read_camera_dir(object_dir / "camera")
+    images_dir = object_dir / "images"
     columns = []
     aspect = tile_size[0] / tile_size[1]
     for view in views:
         image_path = find_by_name_or_stem(images_dir, str(view["image"]))
-        mask_path = find_by_name_or_stem(dataset_dir / "masks", image_path.name)
+        mask_path = find_by_name_or_stem(object_dir / "masks", image_path.name)
         with Image.open(image_path) as source:
             original = source.convert("RGB")
         with Image.open(mask_path) as source:
@@ -301,7 +301,7 @@ def draw_label_center(
 
 
 def build_panorama(
-    dataset: str,
+    object_name: str,
     columns: list[TileColumn],
     meshes: dict[str, Mesh],
     methods: tuple[str, ...],
@@ -331,7 +331,7 @@ def build_panorama(
     draw.rectangle((0, 0, width, title_height), fill=(32, 36, 41))
     draw.text(
         (scaled(16, ui_scale), scaled(10, ui_scale)),
-        f"{dataset} - {len(columns)} views",
+        f"{object_name} - {len(columns)} views",
         fill=(255, 255, 255),
         font=title_font,
     )
@@ -422,7 +422,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mesh-results", type=Path, default=None, help="mesh variant result root"
     )
-    parser.add_argument("--datasets-root", type=Path, default=ROOT / "local/datasets")
+    parser.add_argument(
+        "--objects-root",
+        type=Path,
+        default=ROOT / "local/datasets",
+        help="root containing one subfolder per object",
+    )
     parser.add_argument("--output-root", type=Path, default=None)
     parser.add_argument("--methods", nargs="+", default=list(DEFAULT_METHODS))
     parser.add_argument("--tile-width", type=int, default=320)
@@ -451,27 +456,27 @@ def main() -> int:
     tile_size = (args.tile_width, args.tile_height)
     output_root.mkdir(parents=True, exist_ok=True)
 
-    datasets = sorted(
-        path.name for path in args.datasets_root.iterdir() if has_panorama_inputs(path)
+    objects = sorted(
+        path.name for path in args.objects_root.iterdir() if has_panorama_inputs(path)
     )
     panorama_paths = []
-    for index, dataset in enumerate(datasets, 1):
-        print(f"[{index}/{len(datasets)}] {dataset}", flush=True)
-        dataset_dir = args.datasets_root / dataset
-        columns = column_data(dataset_dir, tile_size, args.crop_margin)
+    for index, object_name in enumerate(objects, 1):
+        print(f"[{index}/{len(objects)}] {object_name}", flush=True)
+        object_dir = args.objects_root / object_name
+        columns = column_data(object_dir, tile_size, args.crop_margin)
         meshes = {
-            method: read_ply(mesh_results / dataset / method / "voxel_hull.ply")
+            method: read_ply(mesh_results / object_name / method / "voxel_hull.ply")
             for method in methods
         }
         panorama = build_panorama(
-            dataset,
+            object_name,
             columns,
             meshes,
             methods,
             tile_size,
             args.label_scale,
         )
-        output = output_root / f"{dataset}_panorama.png"
+        output = output_root / f"{object_name}_panorama.png"
         panorama.save(output)
         panorama_paths.append(output)
 

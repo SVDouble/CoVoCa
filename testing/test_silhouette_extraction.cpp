@@ -1,30 +1,29 @@
-#include "SilhouetteExtractor.h"
-#include "PlanarHomographyExtractor.h"
-#include "ThresholdExtractor.h"
 #include "ExtractorConfigs.h"
+#include "PlanarHomographyExtractor.h"
+#include "SilhouetteExtractor.h"
+#include "ThresholdExtractor.h"
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/aruco.hpp>
-#include <iostream>
-#include <vector>
-#include <string>
 #include <filesystem>
+#include <iostream>
 #include <memory>
+#include <opencv2/aruco.hpp>
+#include <opencv2/opencv.hpp>
+#include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
 
-int findArucoDictionary(const cv::Mat& boardImage) {
+int findArucoDictionary(const cv::Mat &boardImage) {
   std::vector<int> dictIds = {
-      cv::aruco::DICT_4X4_50, cv::aruco::DICT_4X4_100,
-      cv::aruco::DICT_4X4_250, cv::aruco::DICT_4X4_1000,
-      cv::aruco::DICT_5X5_50, cv::aruco::DICT_5X5_100,
-      cv::aruco::DICT_5X5_250, cv::aruco::DICT_5X5_1000,
-      cv::aruco::DICT_6X6_50, cv::aruco::DICT_6X6_100,
-      cv::aruco::DICT_6X6_250, cv::aruco::DICT_6X6_1000,
-      cv::aruco::DICT_7X7_50, cv::aruco::DICT_7X7_100,
-      cv::aruco::DICT_7X7_250, cv::aruco::DICT_7X7_1000,
-      cv::aruco::DICT_ARUCO_ORIGINAL
-  };
+      cv::aruco::DICT_4X4_50,        cv::aruco::DICT_4X4_100,
+      cv::aruco::DICT_4X4_250,       cv::aruco::DICT_4X4_1000,
+      cv::aruco::DICT_5X5_50,        cv::aruco::DICT_5X5_100,
+      cv::aruco::DICT_5X5_250,       cv::aruco::DICT_5X5_1000,
+      cv::aruco::DICT_6X6_50,        cv::aruco::DICT_6X6_100,
+      cv::aruco::DICT_6X6_250,       cv::aruco::DICT_6X6_1000,
+      cv::aruco::DICT_7X7_50,        cv::aruco::DICT_7X7_100,
+      cv::aruco::DICT_7X7_250,       cv::aruco::DICT_7X7_1000,
+      cv::aruco::DICT_ARUCO_ORIGINAL};
 
   int bestDictId = -1;
   int maxMarkers = 0;
@@ -44,15 +43,14 @@ int findArucoDictionary(const cv::Mat& boardImage) {
   if (bestDictId != -1) {
     std::cout << "Best dictionary: ID " << bestDictId << " with " << maxMarkers
               << " markers.\n";
-  }
-  else {
+  } else {
     std::cout << "No dictionary detected markers.\n";
   }
   return bestDictId;
 }
 
-std::unique_ptr<SilhouetteExtractor> createPlanarExtractor(
-    const std::string& refPath) {
+std::unique_ptr<SilhouetteExtractor>
+createPlanarExtractor(const std::string &refPath) {
   PlanarHomographyConfig config;
   config.referenceImage = cv::imread(refPath);
   if (config.referenceImage.empty()) {
@@ -68,9 +66,8 @@ std::unique_ptr<SilhouetteExtractor> createPlanarExtractor(
   config.arucoDictionaryId = dictId;
 
   auto dict = cv::aruco::getPredefinedDictionary(dictId);
-  cv::aruco::ArucoDetector(dict).detectMarkers(config.referenceImage,
-                                               config.referenceCorners,
-                                               config.referenceIds);
+  cv::aruco::ArucoDetector(dict).detectMarkers(
+      config.referenceImage, config.referenceCorners, config.referenceIds);
 
   if (config.referenceIds.empty()) {
     std::cerr << "No markers detected.\n";
@@ -79,11 +76,13 @@ std::unique_ptr<SilhouetteExtractor> createPlanarExtractor(
 
   config.minMarkersRequired = 4;
 
-  std::cout << "Planar extractor ready: " << config.referenceIds.size() << " markers.\n";
+  std::cout << "Planar extractor ready: " << config.referenceIds.size()
+            << " markers.\n";
   return std::make_unique<PlanarHomographyExtractor>(config);
 }
 
-std::unique_ptr<SilhouetteExtractor> createThresholdExtractor(int thresholdValue) {
+std::unique_ptr<SilhouetteExtractor>
+createThresholdExtractor(int thresholdValue) {
   ThresholdConfig config;
   config.diffThreshold = thresholdValue;
   std::cout << "Threshold extractor ready: value = " << thresholdValue << "\n";
@@ -91,10 +90,9 @@ std::unique_ptr<SilhouetteExtractor> createThresholdExtractor(int thresholdValue
 }
 
 // Helper: show side-by-side comparison in one window
-void showSideBySide(const cv::Mat& original,
-                    const cv::Mat& mask,
-                    const cv::Mat& overlay,
-                    const std::string& windowName = "Comparison") {
+void showSideBySide(const cv::Mat &original, const cv::Mat &mask,
+                    const cv::Mat &overlay,
+                    const std::string &windowName = "Comparison") {
   // Convert mask to 3-channel for concatenation
   cv::Mat maskColor;
   cv::cvtColor(mask, maskColor, cv::COLOR_GRAY2BGR);
@@ -103,8 +101,9 @@ void showSideBySide(const cv::Mat& original,
   int targetHeight = 300;
   std::vector<cv::Mat> images = {original, maskColor, overlay};
   std::vector<cv::Mat> resized;
-  for (auto& img : images) {
-    if (img.empty()) continue;
+  for (auto &img : images) {
+    if (img.empty())
+      continue;
     double scale = static_cast<double>(targetHeight) / img.rows;
     int newWidth = static_cast<int>(img.cols * scale);
     cv::Mat resizedImg;
@@ -112,7 +111,8 @@ void showSideBySide(const cv::Mat& original,
     resized.push_back(resizedImg);
   }
 
-  if (resized.size() < 3) return;
+  if (resized.size() < 3)
+    return;
 
   // Concatenate horizontally
   cv::Mat combined;
@@ -125,10 +125,8 @@ void showSideBySide(const cv::Mat& original,
   cv::destroyWindow(windowName);
 }
 
-void processImage(SilhouetteExtractor& extractor,
-                  const std::string& imagePath,
-                  bool show = true,
-                  bool save = false) {
+void processImage(SilhouetteExtractor &extractor, const std::string &imagePath,
+                  bool show = true, bool save = false) {
   cv::Mat image = cv::imread(imagePath);
   if (image.empty()) {
     std::cerr << "ERROR: Failed to load image: " << imagePath << "\n";
@@ -149,16 +147,15 @@ void processImage(SilhouetteExtractor& extractor,
   }
 
   if (save) {
-    std::string outPath = fs::path(imagePath).stem().string()
-                          + "_" + extractor.name() + "_mask.png";
+    std::string outPath = fs::path(imagePath).stem().string() + "_" +
+                          extractor.name() + "_mask.png";
     cv::imwrite(outPath, mask);
     std::cout << "Saved: " << outPath << "\n";
   }
 }
 
-void processDirectory(SilhouetteExtractor& extractor,
-                      const std::string& dirPath,
-                      bool show = true,
+void processDirectory(SilhouetteExtractor &extractor,
+                      const std::string &dirPath, bool show = true,
                       bool save = false) {
   if (!fs::is_directory(dirPath)) {
     std::cerr << "Not a directory: " << dirPath << "\n";
@@ -166,7 +163,7 @@ void processDirectory(SilhouetteExtractor& extractor,
   }
 
   std::vector<std::string> imageFiles;
-  for (const auto& entry : fs::directory_iterator(dirPath)) {
+  for (const auto &entry : fs::directory_iterator(dirPath)) {
     if (entry.is_regular_file()) {
       std::string ext = entry.path().extension().string();
       std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -182,20 +179,23 @@ void processDirectory(SilhouetteExtractor& extractor,
   }
 
   std::cout << "Found " << imageFiles.size() << " images.\n";
-  for (const auto& f : imageFiles) {
+  for (const auto &f : imageFiles) {
     processImage(extractor, f, show, save);
   }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   // Usage:
-  //   Planar:    ./test_silhouette_extraction --method planar <ref_image> <input>
-  //   Threshold: ./test_silhouette_extraction --method threshold <threshold_value> <input>
+  //   Planar:    ./test_silhouette_extraction --method planar <ref_image>
+  //   <input> Threshold: ./test_silhouette_extraction --method threshold
+  //   <threshold_value> <input>
 
   if (argc < 4) {
     std::cerr << "Usage:\n";
-    std::cerr << "  Planar:   " << argv[0] << " --method planar <ref_image> <input>\n";
-    std::cerr << "  Threshold:" << argv[0] << " --method threshold <threshold_value> <input>\n";
+    std::cerr << "  Planar:   " << argv[0]
+              << " --method planar <ref_image> <input>\n";
+    std::cerr << "  Threshold:" << argv[0]
+              << " --method threshold <threshold_value> <input>\n";
     std::cerr << "\nNote: <input> can be an image file or a directory.\n";
     return -1;
   }
@@ -212,7 +212,8 @@ int main(int argc, char** argv) {
     std::string refPath = argv[3];
     inputPath = argv[4];
     extractor = createPlanarExtractor(refPath);
-    if (!extractor) return -1;
+    if (!extractor)
+      return -1;
 
     if (fs::is_directory(inputPath))
       processDirectory(*extractor, inputPath, true, false);
@@ -229,7 +230,8 @@ int main(int argc, char** argv) {
     inputPath = argv[4];
 
     extractor = createThresholdExtractor(thresholdVal);
-    if (!extractor) return -1;
+    if (!extractor)
+      return -1;
 
     if (fs::is_directory(inputPath))
       processDirectory(*extractor, inputPath, true, false);

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
+#include <opencv2/opencv.hpp>
 
 struct ThresholdConfig {
   int diffThreshold = 30;
@@ -17,5 +17,3 @@ struct PlanarHomographyConfig {
 
   int minMarkersRequired = 4;
 };
-
-

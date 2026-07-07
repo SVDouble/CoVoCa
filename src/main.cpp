@@ -11,59 +11,39 @@
 #include <utility>
 #include <vector>
 
-#include "DatasetLoader.h"
+#include "ObjectDataLoader.h"
 #include "VoxelCarver.h"
 #include "VoxelCarvingConfig.h"
 
 namespace fs = std::filesystem;
 
 namespace {
-VoxelCarvingConfig configForObject(const VoxelCarvingObjectConfig &object) {
-  return VoxelCarvingConfig{object.voxel_grid, object.color};
-}
-
-fs::path outputDirFor(const VoxelCarvingBatchConfig &batch,
-                      const VoxelCarvingObjectConfig &object) {
-  if (object.output_dir) {
-    return *object.output_dir;
-  }
-  if (batch.output_dir) {
-    return *batch.output_dir / object.name;
-  }
-  return fs::path(object.name);
-}
-
-void runVoxelCarving(const fs::path &dataset_config_path,
-                     const VoxelCarvingConfig &config,
-                     const fs::path &output_dir) {
-  LoadedDataset dataset = loadDataset(dataset_config_path);
+void carveObject(const fs::path &object_config_path,
+                 const VoxelCarvingConfig &config) {
+  std::vector<ObjectView> object_views = loadObjectViews(object_config_path);
   VoxelGrid voxel_grid = createVoxelGrid(config.voxel_grid);
 
   std::cout << "Voxelgrid size: " << voxel_grid.getSize() << std::endl;
-  std::cout << "Voxelgrid stepsize: " << voxel_grid.getStepSize()
-            << std::endl;
+  std::cout << "Voxelgrid stepsize: " << voxel_grid.getStepSize() << std::endl;
   std::cout << "Starting voxel carving..." << std::endl;
 
-  VoxelCarver voxel_carver(std::move(voxel_grid),
-                           std::move(dataset.silhouettes),
-                           std::move(dataset.cameras),
-                           std::move(dataset.color_images));
+  VoxelCarver voxel_carver(std::move(voxel_grid), std::move(object_views));
 
   voxel_carver.carve();
-  saveVoxelCarvingResult(voxel_carver.getVoxelGrid(),
-                         voxel_carver.getViewVector(), config, output_dir);
+  saveVoxelCarvingResult(voxel_carver.getVoxelGrid(), voxel_carver.getViews(),
+                         config);
 }
 
-void runVoxelCarvingBatch(const VoxelCarvingBatchConfig &config) {
-  const std::size_t worker_count = std::min(
-      config.objects.size(),
-      std::max<std::size_t>(1, std::thread::hardware_concurrency()));
+void carveBatch(const VoxelCarvingBatchConfig &config) {
+  const std::size_t worker_count =
+      std::min(config.objects.size(), static_cast<std::size_t>(config.workers));
   std::atomic_size_t next_object = 0;
   std::mutex output_mutex;
   std::vector<std::string> errors;
 
   auto worker = [&] {
     while (true) {
+      // A shared index keeps the worker count fixed while distributing objects.
       const std::size_t index = next_object.fetch_add(1);
       if (index >= config.objects.size()) {
         return;
@@ -76,8 +56,10 @@ void runVoxelCarvingBatch(const VoxelCarvingBatchConfig &config) {
           std::cout << "[" << index + 1 << "/" << config.objects.size() << "] "
                     << object.name << std::endl;
         }
-        runVoxelCarving(object.dataset_config, configForObject(object),
-                        outputDirFor(config, object));
+
+        carveObject(object.object_config,
+                    VoxelCarvingConfig{config.output_dir / object.name,
+                                       object.voxel_grid, object.color});
       } catch (const std::exception &exception) {
         std::lock_guard lock(output_mutex);
         errors.push_back(object.name + ": " + exception.what());
@@ -106,30 +88,27 @@ void runVoxelCarvingBatch(const VoxelCarvingBatchConfig &config) {
   }
 }
 
-void printUsage(const char *program) {
-  std::cerr
-      << "Usage:\n"
-      << "  " << program
-      << " <dataset_config.yaml> <voxel_carving_config.yaml>\n"
-      << "  " << program << " <voxel_carving_batch.yaml>\n\n"
-      << "Dataset config: images_dir, masks_dir, camera_dir.\n"
-      << "Voxel carving config: voxel_grid and optional color method(s).\n"
-      << "Batch config: objects with dataset_config, voxel_grid, and output_dir.\n";
-}
 } // namespace
 
 int main(int argc, char **argv) {
   if (argc != 2 && argc != 3) {
-    printUsage(argv[0]);
+    std::cerr
+        << "Usage:\n"
+        << "  " << argv[0]
+        << " <object_config.yaml> <voxel_carving_config.yaml>\n"
+        << "  " << argv[0] << " <voxel_carving_batch.yaml>\n\n"
+        << "Object config: images_dir, masks_dir, camera_dir.\n"
+        << "Voxel carving config: voxel_grid and optional color method(s).\n"
+        << "Batch config: workers, output_dir, and objects with object_config "
+           "and voxel_grid.\n";
     return 1;
   }
 
   try {
     if (argc == 2) {
-      runVoxelCarvingBatch(loadVoxelCarvingBatchConfig(argv[1]));
+      carveBatch(loadVoxelCarvingBatchConfig(argv[1]));
     } else {
-      runVoxelCarving(argv[1], loadVoxelCarvingConfig(argv[2]),
-                      fs::current_path());
+      carveObject(argv[1], loadVoxelCarvingConfig(argv[2]));
     }
 
     std::cout << "End" << std::endl;

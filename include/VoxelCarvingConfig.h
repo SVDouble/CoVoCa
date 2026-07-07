@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "View.h"
+#include "ObjectView.h"
 #include "VoxelGrid.h"
 
 struct VoxelGridConfig {
@@ -15,25 +15,26 @@ struct VoxelGridConfig {
   std::array<int, 3> resolution;
 };
 
-struct ColorConfig {
+struct ColorReconstructionConfig {
   std::vector<std::string> methods;
 };
 
 struct VoxelCarvingConfig {
+  std::filesystem::path output_dir;
   VoxelGridConfig voxel_grid;
-  std::optional<ColorConfig> color;
+  std::optional<ColorReconstructionConfig> color;
 };
 
 struct VoxelCarvingObjectConfig {
   std::string name;
-  std::filesystem::path dataset_config;
-  std::optional<std::filesystem::path> output_dir;
+  std::filesystem::path object_config;
   VoxelGridConfig voxel_grid;
-  std::optional<ColorConfig> color;
+  std::optional<ColorReconstructionConfig> color;
 };
 
 struct VoxelCarvingBatchConfig {
-  std::optional<std::filesystem::path> output_dir;
+  int workers;
+  std::filesystem::path output_dir;
   std::vector<VoxelCarvingObjectConfig> objects;
 };
 
@@ -42,9 +43,5 @@ VoxelCarvingBatchConfig
 loadVoxelCarvingBatchConfig(const std::filesystem::path &path);
 VoxelGrid createVoxelGrid(const VoxelGridConfig &config);
 void saveVoxelCarvingResult(VoxelGrid voxel_grid,
-                            const std::vector<View> &views,
+                            const std::vector<ObjectView> &views,
                             const VoxelCarvingConfig &config);
-void saveVoxelCarvingResult(VoxelGrid voxel_grid,
-                            const std::vector<View> &views,
-                            const VoxelCarvingConfig &config,
-                            const std::filesystem::path &output_dir);

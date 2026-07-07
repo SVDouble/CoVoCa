@@ -1,4 +1,4 @@
-#include "DatasetLoader.h"
+#include "ObjectDataLoader.h"
 
 #include <array>
 #include <iostream>
@@ -17,36 +17,37 @@ namespace {
 constexpr std::array<const char *, 8> kImageExtensions = {
     ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".ppm", ".pgm"};
 
-struct Paths {
+struct ObjectDataPaths {
   fs::path images_dir;
   fs::path masks_dir;
   fs::path camera_dir;
 };
 
-struct Config {
-  Paths paths;
+struct ObjectDataConfig {
+  ObjectDataPaths paths;
   std::optional<int> foreground_threshold;
 };
 
-struct IntrinsicsProfile {
+struct CameraIntrinsicsProfile {
   std::vector<std::vector<double>> matrix;
 };
-struct IntrinsicsDocument {
-  std::map<std::string, IntrinsicsProfile> profiles;
+
+struct CameraIntrinsicsDocument {
+  std::map<std::string, CameraIntrinsicsProfile> profiles;
 };
 
-struct PoseFrame {
+struct CameraPoseFrame {
   std::string image;
   std::string intrinsics_profile;
   std::vector<std::vector<double>> rotation_board_to_camera;
   std::vector<double> tvec_board_to_camera_m;
 };
 
-struct PosesDocument {
-  std::vector<PoseFrame> frames;
+struct CameraPosesDocument {
+  std::vector<CameraPoseFrame> frames;
 };
 
-struct CalibratedImage {
+struct CalibratedView {
   std::string image_name;
   Camera camera;
 };
@@ -55,14 +56,14 @@ fs::path resolve(const fs::path &base, const fs::path &path) {
   return path.empty() || path.is_absolute() ? path : base / path;
 }
 
-Config loadConfig(const fs::path &path) {
-  auto result = rfl::yaml::load<Config>(path.string());
+ObjectDataConfig loadObjectDataConfig(const fs::path &path) {
+  auto result = rfl::yaml::load<ObjectDataConfig>(path.string());
   if (!result) {
-    throw std::runtime_error("invalid dataset config " + path.string() + ": " +
+    throw std::runtime_error("invalid object config " + path.string() + ": " +
                              result.error().what());
   }
 
-  Config config = result.value();
+  ObjectDataConfig config = result.value();
   const fs::path base =
       path.has_parent_path() ? path.parent_path() : fs::current_path();
   config.paths.images_dir = resolve(base, config.paths.images_dir);
@@ -132,7 +133,7 @@ T loadYamlFile(const fs::path &path, const std::string &label) {
   return result.value();
 }
 
-std::vector<CalibratedImage> loadCameraRecords(const fs::path &camera_dir) {
+std::vector<CalibratedView> loadCalibratedViews(const fs::path &camera_dir) {
   if (!fs::is_directory(camera_dir)) {
     throw std::runtime_error("camera_dir is not a directory: " +
                              camera_dir.string());
@@ -148,18 +149,19 @@ std::vector<CalibratedImage> loadCameraRecords(const fs::path &camera_dir) {
                              poses_path.string());
   }
 
-  const IntrinsicsDocument intrinsics = loadYamlFile<IntrinsicsDocument>(
-      intrinsics_path, "camera intrinsics file");
-  const PosesDocument poses =
-      loadYamlFile<PosesDocument>(poses_path, "camera poses file");
+  const CameraIntrinsicsDocument intrinsics =
+      loadYamlFile<CameraIntrinsicsDocument>(intrinsics_path,
+                                             "camera intrinsics file");
+  const CameraPosesDocument poses =
+      loadYamlFile<CameraPosesDocument>(poses_path, "camera poses file");
   if (poses.frames.empty()) {
     throw std::runtime_error("camera poses file has no frames: " +
                              poses_path.string());
   }
 
-  std::vector<CalibratedImage> records;
-  records.reserve(poses.frames.size());
-  for (const PoseFrame &frame : poses.frames) {
+  std::vector<CalibratedView> views;
+  views.reserve(poses.frames.size());
+  for (const CameraPoseFrame &frame : poses.frames) {
     const auto profile = intrinsics.profiles.find(frame.intrinsics_profile);
     if (profile == intrinsics.profiles.end()) {
       throw std::runtime_error("unknown intrinsics profile " +
@@ -167,7 +169,7 @@ std::vector<CalibratedImage> loadCameraRecords(const fs::path &camera_dir) {
                                frame.image);
     }
 
-    records.push_back({
+    views.push_back({
         frame.image,
         Camera(
             toMatrix3d(profile->second.matrix, "intrinsics matrix"),
@@ -176,13 +178,13 @@ std::vector<CalibratedImage> loadCameraRecords(const fs::path &camera_dir) {
             toVector3d(frame.tvec_board_to_camera_m, "tvec_board_to_camera_m")),
     });
   }
-  return records;
+  return views;
 }
 
 } // namespace
 
-LoadedDataset loadDataset(const fs::path &config_path) {
-  Config config = loadConfig(config_path);
+std::vector<ObjectView> loadObjectViews(const fs::path &config_path) {
+  ObjectDataConfig config = loadObjectDataConfig(config_path);
   if (!fs::is_directory(config.paths.images_dir)) {
     throw std::runtime_error("images_dir is not a directory: " +
                              config.paths.images_dir.string());
@@ -191,17 +193,15 @@ LoadedDataset loadDataset(const fs::path &config_path) {
     throw std::runtime_error("masks_dir is not a directory: " +
                              config.paths.masks_dir.string());
   }
-  std::vector<CalibratedImage> camera_records =
-      loadCameraRecords(config.paths.camera_dir);
+  std::vector<CalibratedView> calibrated_views =
+      loadCalibratedViews(config.paths.camera_dir);
 
-  LoadedDataset dataset;
-  dataset.cameras.reserve(camera_records.size());
-  dataset.silhouettes.reserve(camera_records.size());
-  dataset.color_images.reserve(camera_records.size());
+  std::vector<ObjectView> object_views;
+  object_views.reserve(calibrated_views.size());
 
-  for (const CalibratedImage &record : camera_records) {
+  for (CalibratedView &view : calibrated_views) {
     const fs::path image_path =
-        findByNameOrStem(config.paths.images_dir, record.image_name);
+        findByNameOrStem(config.paths.images_dir, view.image_name);
     cv::Mat image = readImage(image_path, cv::IMREAD_COLOR);
     const fs::path mask_path =
         findByNameOrStem(config.paths.masks_dir, image_path);
@@ -213,12 +213,14 @@ LoadedDataset loadDataset(const fs::path &config_path) {
       throw std::runtime_error("invalid silhouette for " + image_path.string());
     }
 
-    dataset.cameras.push_back(record.camera);
-    dataset.silhouettes.push_back(std::move(mask));
-    dataset.color_images.push_back(std::move(image));
+    object_views.push_back(ObjectView{
+        std::move(view.camera),
+        std::move(mask),
+        std::move(image),
+    });
   }
 
-  std::cout << "Loaded " << dataset.cameras.size() << " calibrated views"
+  std::cout << "Loaded " << object_views.size() << " calibrated views"
             << std::endl;
-  return dataset;
+  return object_views;
 }

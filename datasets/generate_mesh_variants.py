@@ -2,31 +2,33 @@
 # /// script
 # requires-python = ">=3.14"
 # ///
-"""Generate all color-method mesh variants for every local dataset."""
+"""Generate all color-method mesh variants for every local object."""
 
 from __future__ import annotations
 
 import argparse
 import math
+import os
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 
-from create_loader_config import write_configs
+from create_loader_config import BatchObjectConfig, write_batch_config, write_configs
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASETS = ROOT / "local/datasets"
+OBJECTS_ROOT = ROOT / "local/datasets"
 RESULTS = ROOT / "local/results"
 METHODS = ("average", "best_view", "weighted_average", "median")
+DEFAULT_WORKERS = min(4, os.cpu_count() or 1)
 
 
-def dataset_names(root: Path, selected: list[str] | None) -> list[str]:
+def object_names(root: Path, selected: list[str] | None) -> list[str]:
     keep = set(selected or [])
     names = sorted(path.name for path in root.iterdir() if (path / "images").is_dir())
     names = [name for name in names if not keep or name in keep]
     if not names:
-        raise FileNotFoundError(f"No datasets with images/ found under {root}")
+        raise FileNotFoundError(f"No object folders with images/ found under {root}")
     return names
 
 
@@ -141,59 +143,73 @@ def run(cmd: list[object], cwd: Path, log: Path) -> None:
             raise subprocess.CalledProcessError(process.returncode, cmd)
 
 
-def complete(dataset_dir: Path, methods: tuple[str, ...]) -> bool:
-    return all(
-        (dataset_dir / method / "voxel_hull.ply").is_file() for method in methods
-    )
+def complete(object_dir: Path, methods: tuple[str, ...]) -> bool:
+    if len(methods) == 1:
+        return (object_dir / "voxel_hull.ply").is_file()
+    return all((object_dir / method / "voxel_hull.ply").is_file() for method in methods)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("--datasets-root", type=Path, default=DATASETS)
+    parser.add_argument(
+        "--objects-root",
+        type=Path,
+        default=OBJECTS_ROOT,
+        help="root containing one subfolder per object",
+    )
     parser.add_argument("--reference-results", type=Path, default=None)
     parser.add_argument("--output-root", type=Path, default=None)
     parser.add_argument("--binary", type=Path, default=ROOT / "build/main")
     parser.add_argument(
-        "--dataset",
+        "--object",
         action="append",
-        help="process only this dataset; omit to process all datasets",
+        help="process only this object; omit to process all objects",
     )
     parser.add_argument("--methods", nargs="+", choices=METHODS, default=list(METHODS))
     parser.add_argument("--resolution-scale", type=float, default=2.0)
     parser.add_argument("--boundary-margin-voxels", type=float, default=8.0)
     parser.add_argument("--expand-fraction", type=float, default=0.10)
     parser.add_argument("--expand-min", type=float, default=0.01)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help="number of objects to carve in parallel",
+    )
     parser.add_argument("--resume", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    datasets_root = args.datasets_root.resolve()
+    if args.workers < 1:
+        raise ValueError("--workers must be at least 1")
+    objects_root = args.objects_root.resolve()
     reference = (args.reference_results or latest_reference()).resolve()
     output_root = (
         args.output_root or RESULTS / f"mesh_variants_{datetime.now():%Y%m%d_%H%M%S}"
     ).resolve()
     binary = args.binary.resolve()
     methods = tuple(args.methods)
-    names = dataset_names(datasets_root, args.dataset)
+    names = object_names(objects_root, args.object)
     if not binary.is_file():
         raise FileNotFoundError(f"Voxel carving binary not found: {binary}")
     output_root.mkdir(parents=True, exist_ok=True)
+    batch_objects: list[BatchObjectConfig] = []
 
-    for index, dataset in enumerate(names, 1):
-        print(f"[{index}/{len(names)}] {dataset}", flush=True)
-        dataset_output = output_root / dataset
-        dataset_output.mkdir(parents=True, exist_ok=True)
-        if args.resume and complete(dataset_output, methods):
+    for index, object_name in enumerate(names, 1):
+        print(f"[{index}/{len(names)}] {object_name}", flush=True)
+        object_output = output_root / object_name
+        object_output.mkdir(parents=True, exist_ok=True)
+        if args.resume and complete(object_output, methods):
             print("  already complete", flush=True)
             continue
 
-        source_config = reference / dataset / "voxel_carving.source.yaml"
+        source_config = reference / object_name / "voxel_carving.source.yaml"
         lower, upper, resolution = read_grid(source_config)
-        hull = reference / dataset / "average" / "voxel_hull.ply"
+        hull = reference / object_name / "average" / "voxel_hull.ply"
         bbox = read_ply_bbox(hull) if hull.is_file() else None
         lower, upper, resolution, expanded = expanded_grid(
             lower,
@@ -209,15 +225,14 @@ def main() -> int:
             print(f"  expanded: {', '.join(expanded)}", flush=True)
         print(f"  resolution: {resolution}", flush=True)
 
-        dataset_config = dataset_output / "dataset.source.yaml"
-        voxel_config = dataset_output / "voxel_carving_methods.yaml"
+        object_config = object_output / "object.source.yaml"
+        voxel_config = object_output / "voxel_carving_methods.yaml"
         write_configs(
-            dataset=dataset,
-            datasets_root=datasets_root,
-            masks_root=datasets_root,
-            camera_root=datasets_root,
-            dataset_config=dataset_config,
+            object_name=object_name,
+            objects_root=objects_root,
+            object_config=object_config,
             voxel_config=voxel_config,
+            output_dir=object_output,
             foreground_threshold=1,
             volume_min=lower,
             volume_max=upper,
@@ -225,12 +240,29 @@ def main() -> int:
             color_methods=list(methods),
             no_color=False,
         )
-        shutil.copy2(voxel_config, dataset_output / "voxel_carving.source.yaml")
-        run(
-            [binary, dataset_config, voxel_config],
-            cwd=dataset_output,
-            log=dataset_output / "voxel_carving.log",
+        shutil.copy2(voxel_config, object_output / "voxel_carving.source.yaml")
+        batch_objects.append(
+            BatchObjectConfig(
+                name=object_name,
+                object_config=object_config,
+                volume_min=lower,
+                volume_max=upper,
+                resolution=resolution,
+                color_methods=list(methods),
+                no_color=False,
+            )
         )
+
+    if batch_objects:
+        batch_config = output_root / "voxel_carving_batch.yaml"
+        # Run the C++ binary once; it distributes objects according to workers.
+        write_batch_config(
+            batch_config=batch_config,
+            output_dir=output_root,
+            workers=args.workers,
+            objects=batch_objects,
+        )
+        run([binary, batch_config], cwd=ROOT, log=output_root / "voxel_carving.log")
 
     print(f"Output: {output_root}")
     return 0

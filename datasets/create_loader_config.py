@@ -2,14 +2,27 @@
 # /// script
 # requires-python = ">=3.14"
 # ///
-"""Create dataset and voxel-carving YAML configs for the C++ loader."""
+"""Create object and voxel-carving YAML configs for the C++ loader."""
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 
-DATASETS = Path("local/datasets")
+OBJECTS_ROOT = Path("local/datasets")
 CONFIGS = Path("local/configs")
+RESULTS = Path("local/results/manual")
 COLOR_METHODS = ("average", "best_view", "weighted_average", "median")
+
+
+@dataclass(frozen=True)
+class BatchObjectConfig:
+    name: str
+    object_config: Path
+    volume_min: list[float]
+    volume_max: list[float]
+    resolution: list[int]
+    color_methods: list[str]
+    no_color: bool
 
 
 def yaml_list(values: list[float] | list[int] | list[str]) -> str:
@@ -18,12 +31,11 @@ def yaml_list(values: list[float] | list[int] | list[str]) -> str:
 
 def write_configs(
     *,
-    dataset: str,
-    datasets_root: Path,
-    masks_root: Path,
-    camera_root: Path,
-    dataset_config: Path,
+    object_name: str,
+    objects_root: Path,
+    object_config: Path,
     voxel_config: Path,
+    output_dir: Path,
     foreground_threshold: int,
     volume_min: list[float],
     volume_max: list[float],
@@ -31,12 +43,13 @@ def write_configs(
     color_methods: list[str],
     no_color: bool,
 ) -> None:
-    dataset_config.parent.mkdir(parents=True, exist_ok=True)
+    object_config.parent.mkdir(parents=True, exist_ok=True)
     voxel_config.parent.mkdir(parents=True, exist_ok=True)
 
-    images = datasets_root / dataset / "images"
-    masks = masks_root / dataset / "masks"
-    camera = camera_root / dataset / "camera"
+    object_dir = objects_root / object_name
+    images = object_dir / "images"
+    masks = object_dir / "masks"
+    camera = object_dir / "camera"
 
     checks = (
         (images, "images directory", images.is_dir),
@@ -53,16 +66,9 @@ def write_configs(
         if not ok():
             raise FileNotFoundError(f"Missing {label}: {path}")
 
-    color_section = ""
-    if not no_color:
-        color_section = f"""
-color:
-  methods: {yaml_list(color_methods)}
-"""
-
-    dataset_config.write_text(
-        f"""schema: covoca.branch1.dataset.v1
-name: {dataset}
+    object_config.write_text(
+        f"""schema: covoca.branch1.object.v1
+name: {object_name}
 
 paths:
   images_dir: {images.resolve().as_posix()}
@@ -73,29 +79,77 @@ foreground_threshold: {foreground_threshold}
 """,
         encoding="utf-8",
     )
-    voxel_config.write_text(
-        f"""schema: covoca.branch1.voxel_carving.v1
-name: {dataset}
+    voxel_lines = [
+        "schema: covoca.branch1.voxel_carving.v1",
+        f"name: {object_name}",
+        f"output_dir: {output_dir.resolve().as_posix()}",
+        "",
+        "voxel_grid:",
+        f"  min: {yaml_list(volume_min)}",
+        f"  max: {yaml_list(volume_max)}",
+        f"  resolution: {yaml_list(resolution)}",
+    ]
+    if not no_color:
+        voxel_lines += ["", "color:", f"  methods: {yaml_list(color_methods)}"]
+    voxel_config.write_text("\n".join(voxel_lines) + "\n", encoding="utf-8")
 
-voxel_grid:
-  min: {yaml_list(volume_min)}
-  max: {yaml_list(volume_max)}
-  resolution: {yaml_list(resolution)}
-{color_section}""",
-        encoding="utf-8",
-    )
+
+def write_batch_config(
+    *,
+    batch_config: Path,
+    output_dir: Path,
+    workers: int,
+    objects: list[BatchObjectConfig],
+) -> None:
+    if workers < 1:
+        raise ValueError("--workers must be at least 1")
+    if not objects:
+        raise ValueError("Batch config needs at least one object")
+
+    # The C++ binary reads this file directly and handles object-level workers.
+    batch_config.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "schema: covoca.branch1.voxel_carving_batch.v1",
+        f"workers: {workers}",
+        f"output_dir: {output_dir.resolve().as_posix()}",
+        "",
+        "objects:",
+    ]
+
+    for entry in objects:
+        lines += [
+            f"  - name: {entry.name}",
+            f"    object_config: {entry.object_config.resolve().as_posix()}",
+        ]
+        lines += [
+            "    voxel_grid:",
+            f"      min: {yaml_list(entry.volume_min)}",
+            f"      max: {yaml_list(entry.volume_max)}",
+            f"      resolution: {yaml_list(entry.resolution)}",
+        ]
+        if not entry.no_color:
+            lines += [
+                "    color:",
+                f"      methods: {yaml_list(entry.color_methods)}",
+            ]
+
+    batch_config.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("--dataset", required=True)
-    parser.add_argument("--datasets-root", type=Path, default=DATASETS)
-    parser.add_argument("--masks-root", type=Path, default=DATASETS)
-    parser.add_argument("--camera-root", type=Path, default=DATASETS)
-    parser.add_argument("--dataset-config", type=Path)
+    parser.add_argument("--object", required=True, help="object folder name")
+    parser.add_argument(
+        "--objects-root",
+        type=Path,
+        default=OBJECTS_ROOT,
+        help="root containing one subfolder per object",
+    )
+    parser.add_argument("--object-config", type=Path)
     parser.add_argument("--voxel-config", type=Path)
+    parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--foreground-threshold", type=int, default=1)
     parser.add_argument(
         "--volume-min", nargs=3, type=float, default=[-0.05, 0.0, -0.05]
@@ -111,15 +165,15 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    dataset_config = args.dataset_config or CONFIGS / f"{args.dataset}.dataset.yaml"
-    voxel_config = args.voxel_config or CONFIGS / f"{args.dataset}.voxel_carving.yaml"
+    object_config = args.object_config or CONFIGS / f"{args.object}.object.yaml"
+    voxel_config = args.voxel_config or CONFIGS / f"{args.object}.voxel_carving.yaml"
+    output_dir = args.output_dir or RESULTS / args.object
     write_configs(
-        dataset=args.dataset,
-        datasets_root=args.datasets_root,
-        masks_root=args.masks_root,
-        camera_root=args.camera_root,
-        dataset_config=dataset_config,
+        object_name=args.object,
+        objects_root=args.objects_root,
+        object_config=object_config,
         voxel_config=voxel_config,
+        output_dir=output_dir,
         foreground_threshold=args.foreground_threshold,
         volume_min=args.volume_min,
         volume_max=args.volume_max,
@@ -127,9 +181,10 @@ def main() -> int:
         color_methods=args.color_methods,
         no_color=args.no_color,
     )
-    print(f"Wrote {dataset_config}")
+    print(f"Wrote {object_config}")
     print(f"Wrote {voxel_config}")
-    print(f"Run: ./build/main {dataset_config} {voxel_config}")
+    print(f"Output: {output_dir}")
+    print(f"Run: ./build/main {object_config} {voxel_config}")
     return 0
 
 
