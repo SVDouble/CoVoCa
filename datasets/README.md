@@ -1,149 +1,161 @@
-# Dataset Inputs
+# Dataset Onboarding
 
-The C++ loader needs three inputs for every usable view:
+Keep downloaded data under `local/datasets` and do not commit images, masks,
+camera files, meshes, or panoramas.
 
-- original image
-- binary foreground mask
-- camera intrinsics plus board-to-camera pose
-
-Keep real dataset images under `local/`; do not commit them. Masks and camera
-annotations are small enough to commit when they are stable.
-
-## Expected Layout
-
-Raw images:
+Each object must have:
 
 ```text
-local/datasets/<dataset>/images/
-  image_0001.jpg
-  image_0002.jpg
+local/datasets/<object>/
+  images/
+  masks/
+  camera/
+    intrinsics.yaml
+    poses.yaml
 ```
 
-Committed masks:
+The LRZ archive should already include all three folders. The C++ loader reads
+camera YAML directly.
 
-```text
-datasets/annotations/<dataset>/masks/
-  image_0001.png
-  image_0002.png
-```
+## Build
 
-Committed cameras:
-
-```text
-datasets/annotations/<dataset>/camera/
-  intrinsics.yaml
-  poses.yaml
-  cameras.txt
-```
-
-`cameras.txt` is the file consumed by `src/DatasetLoader.cpp`.
-
-## Fast Path
-
-Masks and camera files are committed for every LRZ object dataset. After
-downloading raw images to `local/datasets/<dataset>/images`, build and run:
+Use a C++23-capable compiler.
 
 ```bash
 cmake -S . -B build
 cmake --build build -j
-./build/main datasets/annotations/<dataset>/dataset.yaml datasets/annotations/<dataset>/voxel_carving.yaml
 ```
 
-The `cat` voxel-carving bounds are tested. The other committed
-`voxel_carving.yaml` files might need adjustment of the `voxel_grid` values.
+## Generate Starter Configs
 
-## Generate Inputs
-
-For the full automated path:
-
-```bash
-uv run --script --python 3.14 datasets/run_pipeline.py \
-  --dataset-url "https://syncandshare.lrz.de/getlink/fi5bV88wYMymCG8PHoZTZ5/" \
-  --volume-min <x> <y> <z> \
-  --volume-max <x> <y> <z>
-```
-
-By default this processes every dataset folder in the downloaded archive. Add
-`--dataset <dataset>` only when you want one object; repeat it to run a subset.
-
-If `--dataset-url` is omitted, the script prompts for a SyncAndShare link. Press
-enter to use datasets already present under `local/datasets`.
-
-The pipeline downloads/extracts the dataset archive, generates masks, generates
-camera intrinsics/extrinsics, creates both config files, builds the C++ binary,
-then runs voxel carving. Generated run outputs are grouped under:
-
-```text
-local/results/<run>/<dataset>/
-  camera/
-  masks/
-  dataset.yaml
-  voxel_carving.yaml
-  voxel_carving.log
-  voxel_grid.ply
-  voxel_hull.ply
-```
-
-SAM 2.1 weights are stored under `local/models/`, and the Grounding DINO
-detector is downloaded by the Python model libraries on first use. If CUDA mask
-generation fails, the pipeline retries masks on CPU.
-
-The volume bounds must cover the object in board coordinates. The pipeline
-fails if voxel carving produces an empty model.
-
-Example tested on the local `cat` dataset:
-
-```bash
-uv run --script --python 3.14 datasets/run_pipeline.py \
-  --skip-download \
-  --dataset cat \
-  --volume-min 0.02 -0.18 0.0 \
-  --volume-max 0.15 -0.03 0.15 \
-  --resolution 104 120 120
-```
-
-For manual debugging, run the individual steps:
-
-```bash
-uv run --script --python 3.14 datasets/generate_masks.py --dataset <dataset>
-uv run --script --python 3.14 datasets/generate_camera.py --dataset <dataset>
-uv run --script --python 3.14 datasets/create_loader_config.py --dataset <dataset>
-```
-
-The third command writes two configs. By default it uses committed annotations
-from `datasets/annotations/<dataset>` when present. For freshly generated local
-annotation runs, pass the generated roots:
+Use the Python helper once per object to create editable YAML configs:
 
 ```bash
 uv run --script --python 3.14 datasets/create_loader_config.py \
-  --dataset <dataset> \
-  --masks-root local/annotations/segmentation_masks \
-  --camera-root local/annotations/camera
+  --dataset <object> \
+  --volume-min <x> <y> <z> \
+  --volume-max <x> <y> <z> \
+  --resolution <nx> <ny> <nz> \
+  --color-methods average best_view weighted_average median
 ```
 
-Pass `--mask-run` or `--camera-run` if you do not want the latest generated run.
-
-Run:
-
-```bash
-./build/main local/configs/<dataset>.dataset.yaml local/configs/<dataset>.voxel_carving.yaml
-```
-
-The dataset config is only for data locations and mask loading. The voxel
-carving config is for reconstruction settings such as volume bounds,
-resolution, and color reconstruction.
-
-## Camera File Format
-
-`cameras.txt` is whitespace-separated:
+This writes:
 
 ```text
-<number_of_views>
-<image_filename>
-<3x3 intrinsics matrix K>
-<3x3 rotation matrix R, board to camera>
-<3-vector translation t, board to camera, meters>
+local/configs/<object>.dataset.yaml
+local/configs/<object>.voxel_carving.yaml
 ```
 
-Repeat the image/K/R/t block once per view. Image filenames are matched by
-exact filename first, then by filename stem.
+## Edit The Configs
+
+The dataset config should usually not need manual edits:
+
+```yaml
+schema: covoca.branch1.dataset.v1
+name: <object>
+
+paths:
+  images_dir: local/datasets/<object>/images
+  masks_dir: local/datasets/<object>/masks
+  camera_dir: local/datasets/<object>/camera
+foreground_threshold: 1
+```
+
+Edit the voxel-carving config to tune reconstruction quality:
+
+```yaml
+schema: covoca.branch1.voxel_carving.v1
+name: <object>
+
+voxel_grid:
+  min: [<x>, <y>, <z>]
+  max: [<x>, <y>, <z>]
+  resolution: [<nx>, <ny>, <nz>]
+
+color:
+  methods: [average, best_view, weighted_average, median]
+```
+
+Use bounds that contain the object in board coordinates. Higher resolution gives
+more detail but increases runtime. Remove the `color` section to skip color
+reconstruction.
+
+## Run Voxel Carving
+
+For one object, run the C++ executable from the directory where outputs should
+be written:
+
+```bash
+ROOT=$PWD
+OBJECT=<object>
+RESULT=local/results/manual/$OBJECT
+mkdir -p "$RESULT"
+
+(
+  cd "$RESULT"
+  "$ROOT/build/main" \
+    "$ROOT/local/configs/$OBJECT.dataset.yaml" \
+    "$ROOT/local/configs/$OBJECT.voxel_carving.yaml"
+)
+```
+
+With one color method, `voxel_grid.ply` and `voxel_hull.ply` are written into
+the result directory. With multiple methods, each method gets its own subfolder.
+
+To carve multiple objects in one run, create a batch config:
+
+```yaml
+schema: covoca.branch1.voxel_carving_batch.v1
+output_dir: ../results/manual
+
+objects:
+  - name: cat
+    dataset_config: cat.dataset.yaml
+    voxel_grid:
+      min: [<x>, <y>, <z>]
+      max: [<x>, <y>, <z>]
+      resolution: [<nx>, <ny>, <nz>]
+    color:
+      methods: [average, best_view, weighted_average, median]
+```
+
+Paths in the batch config are relative to the batch config file. `output_dir`
+is shared; each object writes to `output_dir/<name>`. Add an object-level
+`output_dir` only when one object needs a different target directory. Objects
+in a batch run in parallel.
+
+```bash
+./build/main local/configs/voxel_carving_batch.yaml
+```
+
+## Optional Setup Helper
+
+`datasets/run_pipeline.py` is still useful for initial setup or batch runs. It
+uses existing `local/datasets` by default and can generate missing masks or
+camera YAML from images:
+
+```bash
+uv run --script --python 3.14 datasets/run_pipeline.py \
+  --volume-min <x> <y> <z> \
+  --volume-max <x> <y> <z> \
+  --resolution <nx> <ny> <nz> \
+  --color-methods average best_view weighted_average median
+```
+
+Pass `--dataset <object>` to limit it to one object. Downloading is opt-in via
+`--dataset-url` or `--archive`.
+
+## Panoramas
+
+After mesh variants exist, create comparison panoramas with:
+
+```bash
+uv run --script --python 3.14 datasets/generate_mesh_panoramas.py \
+  --mesh-results local/results/<mesh_variants_run> \
+  --tile-width 640 \
+  --tile-height 480 \
+  --combined-scales 0.5 1.0
+```
+
+Labels scale with tile size and use a larger default label scale. Increase
+`--label-scale` further if labels still need to be larger.

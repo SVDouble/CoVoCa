@@ -16,7 +16,6 @@ intrinsics from the available ArUco-board images, then writes:
 - `camera_intrinsics.yaml`: the shared calibrated camera profiles for the run.
 - `camera/intrinsics.yaml`: the camera profile used by that dataset.
 - `camera/poses.yaml`: board-to-camera extrinsics for each usable image.
-- `camera/cameras.txt`: flat camera file consumed by the C++ voxel-carving loader.
 
 Outputs go to a new datetime-named folder and never replace existing camera
 annotations. Pass `--shared-intrinsics` only when you want to reuse a previous
@@ -82,7 +81,9 @@ def image_size(path: Path) -> tuple[int, int] | None:
 
 def image_paths(dataset: Path) -> list[Path]:
     return sorted(
-        path for path in (dataset / "images").iterdir() if path.is_file() and path.suffix.casefold() in IMAGE_EXTENSIONS
+        path
+        for path in (dataset / "images").iterdir()
+        if path.is_file() and path.suffix.casefold() in IMAGE_EXTENSIONS
     )
 
 
@@ -151,35 +152,61 @@ def collect_calibration_views(
             )
             kept += 1
         if kept:
-            print(f"  {target[0]}x{target[1]} {dataset.name}: {kept} calibration views", flush=True)
+            print(
+                f"  {target[0]}x{target[1]} {dataset.name}: {kept} calibration views",
+                flush=True,
+            )
     return views
 
 
 def per_view_rms(
-    cv2: Any, views: list[dict[str, Any]], matrix: np.ndarray, dist: np.ndarray, rvecs: list[np.ndarray], tvecs: list[np.ndarray]
+    cv2: Any,
+    views: list[dict[str, Any]],
+    matrix: np.ndarray,
+    dist: np.ndarray,
+    rvecs: list[np.ndarray],
+    tvecs: list[np.ndarray],
 ) -> np.ndarray:
     errors = []
     for view, rvec, tvec in zip(views, rvecs, tvecs, strict=True):
-        projected, _ = cv2.projectPoints(view["object_points"], rvec, tvec, matrix, dist)
+        projected, _ = cv2.projectPoints(
+            view["object_points"], rvec, tvec, matrix, dist
+        )
         residual = view["image_points"].reshape(-1, 2) - projected.reshape(-1, 2)
         errors.append(float(np.sqrt(np.mean(np.sum(residual * residual, axis=1)))))
     return np.asarray(errors)
 
 
 def calibrate_intrinsics(
-    cv2: Any, views: list[dict[str, Any]], size: tuple[int, int], reject_factor: float, reject_floor: float
+    cv2: Any,
+    views: list[dict[str, Any]],
+    size: tuple[int, int],
+    reject_factor: float,
+    reject_floor: float,
 ) -> dict[str, Any]:
     current = list(views)
-    flags = cv2.CALIB_FIX_ASPECT_RATIO | cv2.CALIB_FIX_K3 | cv2.CALIB_FIX_K4 | cv2.CALIB_FIX_K5 | cv2.CALIB_FIX_K6
+    flags = (
+        cv2.CALIB_FIX_ASPECT_RATIO
+        | cv2.CALIB_FIX_K3
+        | cv2.CALIB_FIX_K4
+        | cv2.CALIB_FIX_K5
+        | cv2.CALIB_FIX_K6
+    )
     rounds = []
     matrix = dist = None
     for _ in range(MAX_REJECTION_ROUNDS):
         object_points = [view["object_points"] for view in current]
         points = [view["image_points"] for view in current]
-        rms, matrix, dist, rvecs, tvecs = cv2.calibrateCamera(object_points, points, size, None, None, flags=flags)
+        rms, matrix, dist, rvecs, tvecs = cv2.calibrateCamera(
+            object_points, points, size, None, None, flags=flags
+        )
         errors = per_view_rms(cv2, current, matrix, dist, rvecs, tvecs)
         threshold = max(reject_floor, float(np.median(errors)) * reject_factor)
-        keep = [view for view, error in zip(current, errors, strict=True) if error <= threshold]
+        keep = [
+            view
+            for view, error in zip(current, errors, strict=True)
+            if error <= threshold
+        ]
         rounds.append(
             {
                 "frames": len(current),
@@ -209,7 +236,9 @@ def rounded_vector(values: Any) -> list[float]:
     return [round(float(value), 6) for value in np.asarray(values).ravel()]
 
 
-def portrait_profile(matrix: np.ndarray, dist: np.ndarray, landscape: tuple[int, int]) -> dict[str, Any]:
+def portrait_profile(
+    matrix: np.ndarray, dist: np.ndarray, landscape: tuple[int, int]
+) -> dict[str, Any]:
     width, height = landscape
     fx, fy = float(matrix[0, 0]), float(matrix[1, 1])
     cx, cy = float(matrix[0, 2]), float(matrix[1, 2])
@@ -230,7 +259,10 @@ def calibrate_shared_intrinsics(cv2: Any, datasets: list[Path]) -> dict[str, Any
         views = collect_calibration_views(cv2, datasets, size, CORNER_REFINEMENT_WINDOW)
         views = [view for view in views if view["markers"] >= CALIBRATION_MIN_MARKERS]
         if len(views) < 3:
-            print(f"Skipping {size[0]}x{size[1]} intrinsics: only {len(views)} usable calibration views", flush=True)
+            print(
+                f"Skipping {size[0]}x{size[1]} intrinsics: only {len(views)} usable calibration views",
+                flush=True,
+            )
             continue
         result = calibrate_intrinsics(cv2, views, size, REJECT_FACTOR, REJECT_FLOOR_PX)
         final = result["rounds"][-1]
@@ -246,16 +278,21 @@ def calibrate_shared_intrinsics(cv2: Any, datasets: list[Path]) -> dict[str, Any
             "rms_reprojection_error_px": final["rms_px"],
             "median_reprojection_error_px": final["median_px"],
         }
-        profiles[portrait_name] = portrait_profile(result["matrix"], result["dist"], size) | {
-            "derived_from": landscape_name
-        }
-        methods.append(f"{size[0]}x{size[1]}: {len(result['views'])} views, RMS {final['rms_px']} px")
+        profiles[portrait_name] = portrait_profile(
+            result["matrix"], result["dist"], size
+        ) | {"derived_from": landscape_name}
+        methods.append(
+            f"{size[0]}x{size[1]}: {len(result['views'])} views, RMS {final['rms_px']} px"
+        )
     if not profiles:
-        raise RuntimeError("No camera intrinsics could be calibrated from the available images")
+        raise RuntimeError(
+            "No camera intrinsics could be calibrated from the available images"
+        )
     return {
         "schema": "covoca.camera_intrinsics.v1",
         "camera": {"make": CAMERA_MAKE, "model": CAMERA_MODEL},
-        "method": "ArUco GridBoard calibration from dataset images. " + "; ".join(methods),
+        "method": "ArUco GridBoard calibration from dataset images. "
+        + "; ".join(methods),
         "profiles": profiles,
     }
 
@@ -271,14 +308,18 @@ def transform_matrix(rotation: np.ndarray, translation: np.ndarray) -> np.ndarra
     return transform
 
 
-def profile_for_size(profiles: dict[str, dict[str, Any]], width: int, height: int) -> tuple[str, dict[str, Any]]:
+def profile_for_size(
+    profiles: dict[str, dict[str, Any]], width: int, height: int
+) -> tuple[str, dict[str, Any]]:
     matches = [
         (name, profile)
         for name, profile in profiles.items()
         if (profile["width"], profile["height"]) == (width, height)
     ]
     if len(matches) != 1:
-        raise ValueError(f"Expected one intrinsics profile for {width}x{height}, found {len(matches)}")
+        raise ValueError(
+            f"Expected one intrinsics profile for {width}x{height}, found {len(matches)}"
+        )
     return matches[0]
 
 
@@ -322,7 +363,9 @@ def detect_pose(
     if not success:
         return None, "solvePnP failed"
 
-    projected, _ = cv2.projectPoints(object_points, raw_rvec, translation, camera_matrix, distortion)
+    projected, _ = cv2.projectPoints(
+        object_points, raw_rvec, translation, camera_matrix, distortion
+    )
     residuals = image_points.reshape(-1, 2) - projected.reshape(-1, 2)
     error = float(np.sqrt(np.mean(np.sum(residuals * residuals, axis=1))))
     if error > max_error:
@@ -373,10 +416,16 @@ def pose_document(
             "input_image_count": len(frames) + len(rejected),
             "accepted_frame_count": len(frames),
             "rejected_frame_count": len(rejected),
-            "mean_reprojection_error_px": round(float(np.mean(errors)), 6) if errors else None,
-            "max_reprojection_error_px": round(float(np.max(errors)), 6) if errors else None,
+            "mean_reprojection_error_px": round(float(np.mean(errors)), 6)
+            if errors
+            else None,
+            "max_reprojection_error_px": round(float(np.max(errors)), 6)
+            if errors
+            else None,
         },
-        "rejected_frames": [{"image": f"images/{name}", "reason": reason} for name, reason in rejected],
+        "rejected_frames": [
+            {"image": f"images/{name}", "reason": reason} for name, reason in rejected
+        ],
         "frames": frames,
     }
 
@@ -411,12 +460,23 @@ def detect_camera_data(
             continue
         height, width = image.shape
         profile_name, profile = profile_for_size(profiles, width, height)
-        frame, reason = detect_pose(cv2, detector, board, image_path, profile_name, profile, min_markers, max_error)
+        frame, reason = detect_pose(
+            cv2,
+            detector,
+            board,
+            image_path,
+            profile_name,
+            profile,
+            min_markers,
+            max_error,
+        )
         if frame:
             frames.append(frame)
             used_profiles.add(profile_name)
         else:
-            rejected.append((image_path.name, reason or "unknown pose-estimation failure"))
+            rejected.append(
+                (image_path.name, reason or "unknown pose-estimation failure")
+            )
 
     if not frames:
         raise RuntimeError(f"No camera poses could be estimated for {dataset.name}")
@@ -437,21 +497,6 @@ def detect_camera_data(
     )
 
 
-def write_loader_camera_file(path: Path, intrinsics: dict[str, Any], poses: dict[str, Any]) -> None:
-    """Write the flat camera format expected by src/DatasetLoader.cpp."""
-    frames = poses["frames"]
-    with path.open("w", encoding="utf-8") as stream:
-        stream.write(f"{len(frames)}\n")
-        for frame in frames:
-            profile = intrinsics["profiles"][frame["intrinsics_profile"]]
-            stream.write(f"{Path(frame['image']).name}\n")
-            for row in profile["matrix"]:
-                stream.write(" ".join(f"{float(value):.9g}" for value in row) + "\n")
-            for row in frame["rotation_board_to_camera"]:
-                stream.write(" ".join(f"{float(value):.9g}" for value in row) + "\n")
-            stream.write(" ".join(f"{float(value):.9g}" for value in frame["tvec_board_to_camera_m"]) + "\n")
-
-
 def create_run_dir(output_root: Path) -> Path:
     run_dir = output_root / datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -459,11 +504,21 @@ def create_run_dir(output_root: Path) -> Path:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--datasets-root", type=Path, default=DATASETS_ROOT)
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
-    parser.add_argument("--shared-intrinsics", type=Path, help="reuse a camera_intrinsics.yaml from an earlier run")
-    parser.add_argument("--dataset", action="append", help="process only this dataset; omit to process all datasets")
+    parser.add_argument(
+        "--shared-intrinsics",
+        type=Path,
+        help="reuse a camera_intrinsics.yaml from an earlier run",
+    )
+    parser.add_argument(
+        "--dataset",
+        action="append",
+        help="process only this dataset; omit to process all datasets",
+    )
     parser.add_argument("--min-markers", type=int, default=4)
     parser.add_argument("--max-reprojection-error", type=float, default=12.0)
     return parser.parse_args()
@@ -480,15 +535,21 @@ def main() -> int:
     datasets = sorted(
         path
         for path in args.datasets_root.iterdir()
-        if path.is_dir() and (path / "images").is_dir() and (selected is None or path.name in selected)
+        if path.is_dir()
+        and (path / "images").is_dir()
+        and (selected is None or path.name in selected)
     )
     if not datasets:
-        raise FileNotFoundError("No datasets with images/ matched the requested selection")
+        raise FileNotFoundError(
+            "No datasets with images/ matched the requested selection"
+        )
 
     run_dir = create_run_dir(args.output_root)
     if args.shared_intrinsics:
         if not args.shared_intrinsics.is_file():
-            raise FileNotFoundError(f"Shared intrinsics file does not exist: {args.shared_intrinsics}")
+            raise FileNotFoundError(
+                f"Shared intrinsics file does not exist: {args.shared_intrinsics}"
+            )
         shared = load_yaml(args.shared_intrinsics)
         source_label = str(args.shared_intrinsics)
     else:
@@ -511,7 +572,6 @@ def main() -> int:
         output = run_dir / dataset.name / "camera"
         write_yaml(output / "intrinsics.yaml", intrinsics)
         write_yaml(output / "poses.yaml", poses)
-        write_loader_camera_file(output / "cameras.txt", intrinsics, poses)
         summary = poses["summary"]
         print(
             f"{dataset.name}: {summary['accepted_frame_count']}/{summary['input_image_count']} poses, "
@@ -519,7 +579,10 @@ def main() -> int:
             flush=True,
         )
         for rejected in poses["rejected_frames"]:
-            print(f"  rejected {Path(rejected['image']).name}: {rejected['reason']}", flush=True)
+            print(
+                f"  rejected {Path(rejected['image']).name}: {rejected['reason']}",
+                flush=True,
+            )
 
     print(f"Output: {run_dir}", flush=True)
     return 0

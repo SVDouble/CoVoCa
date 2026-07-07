@@ -1,0 +1,14 @@
+schema: covoca.branch1.voxel_carving_batch.v1
+
+# Relative paths are resolved from this file.
+output_dir: ../local/results/manual
+
+objects:
+  - name: my_dataset
+    dataset_config: my_dataset.dataset.yaml
+    voxel_grid:
+      min: [-0.041897, 0.001126, -0.037845]
+      max: [0.030897, 0.088227, 0.035495]
+      resolution: [100, 100, 100]
+    color:
+      methods: [average, best_view, weighted_average, median]

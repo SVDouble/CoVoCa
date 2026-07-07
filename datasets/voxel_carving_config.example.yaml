@@ -9,4 +9,6 @@ voxel_grid:
 
 # Optional. Remove this section to skip color reconstruction.
 color:
-  method: average
+  # One method writes to the current directory; multiple methods write one
+  # subdirectory per requested color reconstruction method.
+  methods: [average, best_view, weighted_average, median]

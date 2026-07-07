@@ -1,0 +1,27 @@
+{
+  "name": "gaussian-splatting-branch1",
+  "build": {
+    "dockerfile": "ubuntu/Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.rulers": [
+          120
+        ],
+        "files.trimTrailingWhitespace": true,
+        "cmake.configureOnOpen": true,
+        "cmake.buildDirectory": "${workspaceFolder}/build"
+      },
+      "extensions": [
+        "EditorConfig.EditorConfig",
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "ms-vscode.cmake-tools"
+      ]
+    }
+  },
+  "postCreateCommand": "cmake -S . -B build -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build build -j$(nproc)",
+  "remoteUser": "vscode"
+}

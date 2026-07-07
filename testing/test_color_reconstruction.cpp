@@ -88,8 +88,8 @@ int main(int argc, char** argv) {
   //std::string folder_masks = "../datasets/dinoSparseRing/masks";
   //std::vector<cv::Mat> silhouette_vector = loadImages(folder_masks);
 
-  std::string camera_file = "../datasets/dinoSparseRing/dinoSR_par.txt";
-  camera_vector = loadCameras(camera_file);
+  std::string camera_path = "../datasets/dinoSparseRing/dinoSR_par.txt";
+  camera_vector = loadCameras(camera_path);
 
   std::vector<View> views;
 

@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <fstream>
 
 #include "VoxelGrid.h"
@@ -68,11 +69,21 @@ void VoxelGrid::setVoxelColor(const Eigen::Vector3i &_color, int _index)
 
 void VoxelGrid::saveVoxelGrid()
 {
-    std::ofstream file("voxel_grid.ply");
+    saveVoxelGrid("voxel_grid.ply");
+}
+
+void VoxelGrid::saveVoxelGrid(const std::filesystem::path &_path)
+{
+    if (_path.has_parent_path())
+    {
+        std::filesystem::create_directories(_path.parent_path());
+    }
+
+    std::ofstream file(_path);
 
     if (!file.is_open())
     {
-        std::cerr << "Could not create voxel_grid.ply\n";
+        std::cerr << "Could not create " << _path.string() << "\n";
         return;
     }
 
@@ -119,7 +130,7 @@ void VoxelGrid::saveVoxelGrid()
     file.close();
 
     std::cout << "Saved " << occupied_count
-              << " occupied voxels to voxel_grid.ply\n";
+              << " occupied voxels to " << _path.string() << "\n";
 }
 
 bool VoxelGrid::isOccupied(int x, int y, int z) const
@@ -140,11 +151,21 @@ bool VoxelGrid::isOccupied(int x, int y, int z) const
 
 void VoxelGrid::saveHullMesh()
 {
-    std::ofstream file("voxel_hull.ply");
+    saveHullMesh("voxel_hull.ply");
+}
+
+void VoxelGrid::saveHullMesh(const std::filesystem::path &_path)
+{
+    if (_path.has_parent_path())
+    {
+        std::filesystem::create_directories(_path.parent_path());
+    }
+
+    std::ofstream file(_path);
 
     if (!file.is_open())
     {
-        std::cerr << "Cannot create voxel_hull.ply\n";
+        std::cerr << "Cannot create " << _path.string() << "\n";
         return;
     }
 
@@ -289,5 +310,5 @@ void VoxelGrid::saveHullMesh()
 
     std::cout << "Saved "
               << triangles.size()
-              << " triangles to voxel_hull.ply\n";
+              << " triangles to " << _path.string() << "\n";
 }

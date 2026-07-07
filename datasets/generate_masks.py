@@ -68,18 +68,28 @@ class GroundedSegmenter:
         from ultralytics import SAM
 
         if device == "cuda" and not torch.cuda.is_available():
-            raise RuntimeError("CUDA was requested but PyTorch cannot see a CUDA device")
+            raise RuntimeError(
+                "CUDA was requested but PyTorch cannot see a CUDA device"
+            )
         sam_model.parent.mkdir(parents=True, exist_ok=True)
 
         self.torch = torch
         self.device = device
         self.sam_device = "cuda:0" if device == "cuda" else "cpu"
         self.processor = AutoProcessor.from_pretrained(detector_name)
-        self.detector = AutoModelForZeroShotObjectDetection.from_pretrained(detector_name).to(device).eval()
+        self.detector = (
+            AutoModelForZeroShotObjectDetection.from_pretrained(detector_name)
+            .to(device)
+            .eval()
+        )
         self.segmenter = SAM(str(sam_model))
 
-    def detect(self, image: Image.Image, prompt: str, min_score: float, max_box_area: float) -> tuple[list[float], float]:
-        inputs = self.processor(images=image, text=f"{prompt}.", return_tensors="pt").to(self.device)
+    def detect(
+        self, image: Image.Image, prompt: str, min_score: float, max_box_area: float
+    ) -> tuple[list[float], float]:
+        inputs = self.processor(
+            images=image, text=f"{prompt}.", return_tensors="pt"
+        ).to(self.device)
         with self.torch.no_grad():
             outputs = self.detector(**inputs)
         result = self.processor.post_process_grounded_object_detection(
@@ -94,18 +104,28 @@ class GroundedSegmenter:
         scores = result["scores"]
         if len(scores) == 0:
             raise ValueError(f"No detection for prompt {prompt!r}")
-        box_areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]) / (image.width * image.height)
+        box_areas = (
+            (boxes[:, 2] - boxes[:, 0])
+            * (boxes[:, 3] - boxes[:, 1])
+            / (image.width * image.height)
+        )
         valid = self.torch.where(box_areas <= max_box_area)[0]
         if len(valid) == 0:
-            raise ValueError(f"No detection smaller than {max_box_area:.0%} for prompt {prompt!r}")
+            raise ValueError(
+                f"No detection smaller than {max_box_area:.0%} for prompt {prompt!r}"
+            )
         best = valid[self.torch.argmax(scores[valid])]
         score = float(scores[best])
         if score < min_score:
-            raise ValueError(f"Detection confidence {score:.3f} is below {min_score:.3f} for prompt {prompt!r}")
+            raise ValueError(
+                f"Detection confidence {score:.3f} is below {min_score:.3f} for prompt {prompt!r}"
+            )
         return boxes[best].detach().cpu().tolist(), score
 
     def segment(self, image_path: Path, box: list[float]) -> Image.Image:
-        result = self.segmenter(str(image_path), bboxes=[box], device=self.sam_device, verbose=False)[0]
+        result = self.segmenter(
+            str(image_path), bboxes=[box], device=self.sam_device, verbose=False
+        )[0]
         if result.masks is None:
             raise ValueError(f"SAM returned no mask: {image_path}")
         masks = result.masks.data.detach().cpu().numpy() > 0.5
@@ -123,22 +143,42 @@ def prompt_map(overrides: list[str] | None) -> dict[str, str]:
     return prompts
 
 
-def discover_jobs(root: Path, selected: set[str] | None, excluded: set[str], prompts: dict[str, str]) -> list[Job]:
+def discover_jobs(
+    root: Path, selected: set[str] | None, excluded: set[str], prompts: dict[str, str]
+) -> list[Job]:
     jobs: list[Job] = []
     for dataset in sorted(root.iterdir(), key=lambda path: path.name.casefold()):
         images_dir = dataset / "images"
-        if not images_dir.is_dir() or dataset.name in excluded or (selected and dataset.name not in selected):
+        if (
+            not images_dir.is_dir()
+            or dataset.name in excluded
+            or (selected and dataset.name not in selected)
+        ):
             continue
         if dataset.name not in prompts:
             raise ValueError(f"No text prompt configured for dataset {dataset.name!r}")
-        for image_path in sorted(images_dir.iterdir(), key=lambda path: path.name.casefold()):
-            if image_path.is_file() and image_path.suffix.casefold() in IMAGE_EXTENSIONS:
-                jobs.append((dataset.name, prompts[dataset.name], image_path, f"{image_path.stem}.png"))
+        for image_path in sorted(
+            images_dir.iterdir(), key=lambda path: path.name.casefold()
+        ):
+            if (
+                image_path.is_file()
+                and image_path.suffix.casefold() in IMAGE_EXTENSIONS
+            ):
+                jobs.append(
+                    (
+                        dataset.name,
+                        prompts[dataset.name],
+                        image_path,
+                        f"{image_path.stem}.png",
+                    )
+                )
 
     outputs = Counter((dataset, mask_name) for dataset, _, _, mask_name in jobs)
     duplicates = [str(path) for path, count in outputs.items() if count > 1]
     if duplicates:
-        raise ValueError(f"Image stems produce duplicate masks: {', '.join(duplicates)}")
+        raise ValueError(
+            f"Image stems produce duplicate masks: {', '.join(duplicates)}"
+        )
     return jobs
 
 
@@ -158,7 +198,9 @@ def create_run_dir(output_root: Path) -> Path:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--datasets-root", type=Path, default=DATASETS_ROOT)
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
     parser.add_argument("--sam-model", type=Path, default=SAM_MODEL)
@@ -166,9 +208,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
     parser.add_argument("--min-score", type=float, default=0.25)
     parser.add_argument("--max-box-area", type=float, default=0.30)
-    parser.add_argument("--dataset", action="append", help="process only this dataset; omit to process all datasets")
+    parser.add_argument(
+        "--dataset",
+        action="append",
+        help="process only this dataset; omit to process all datasets",
+    )
     parser.add_argument("--exclude", action="append", default=[])
-    parser.add_argument("--prompt", action="append", help="override or add a prompt as DATASET=TEXT")
+    parser.add_argument(
+        "--prompt", action="append", help="override or add a prompt as DATASET=TEXT"
+    )
     return parser.parse_args()
 
 
@@ -200,7 +248,10 @@ def main() -> int:
         target.parent.mkdir(parents=True, exist_ok=True)
         mask.save(target, optimize=True)
         stats.setdefault(dataset, []).append((score, area))
-        print(f"[{index}/{len(jobs)}] {dataset}/{source.name} score={score:.3f} area={area:.1%}", flush=True)
+        print(
+            f"[{index}/{len(jobs)}] {dataset}/{source.name} score={score:.3f} area={area:.1%}",
+            flush=True,
+        )
 
     for dataset, values in stats.items():
         scores, areas = zip(*values, strict=True)

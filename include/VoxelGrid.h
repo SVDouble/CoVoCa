@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <vector>
 #include <Eigen/Dense>
 
@@ -25,8 +26,10 @@ public:
     // Save for MeshLab
 
     void saveVoxelGrid();
+    void saveVoxelGrid(const std::filesystem::path &_path);
 
     void saveHullMesh();
+    void saveHullMesh(const std::filesystem::path &_path);
 
 private:
     bool isOccupied(int x,

@@ -7,8 +7,8 @@ name: my_dataset
 
 paths:
   images_dir: ../local/datasets/my_dataset/images
-  masks_dir: annotations/my_dataset/masks
-  camera_file: annotations/my_dataset/camera/cameras.txt
+  masks_dir: ../local/datasets/my_dataset/masks
+  camera_dir: ../local/datasets/my_dataset/camera
 
 # Loaded masks are binarized with this threshold.
 foreground_threshold: 1
