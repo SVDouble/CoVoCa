@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.14"
+# dependencies = [
+#   "pyyaml",
+# ]
 # ///
 """Generate all color-method mesh variants for every local object."""
 
@@ -9,27 +12,22 @@ from __future__ import annotations
 import argparse
 import math
 import os
-import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 
-from create_loader_config import BatchObjectConfig, write_batch_config, write_configs
+from create_loader_config import (
+    BatchObjectConfig,
+    COLOR_METHODS,
+    object_names,
+    read_batch_grids,
+    write_batch_config,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 OBJECTS_ROOT = ROOT / "local/datasets"
 RESULTS = ROOT / "local/results"
-METHODS = ("average", "best_view", "weighted_average", "median")
 DEFAULT_WORKERS = min(4, os.cpu_count() or 1)
-
-
-def object_names(root: Path, selected: list[str] | None) -> list[str]:
-    keep = set(selected or [])
-    names = sorted(path.name for path in root.iterdir() if (path / "images").is_dir())
-    names = [name for name in names if not keep or name in keep]
-    if not names:
-        raise FileNotFoundError(f"No object folders with images/ found under {root}")
-    return names
 
 
 def latest_reference() -> Path:
@@ -39,32 +37,6 @@ def latest_reference() -> Path:
     if not candidates:
         raise FileNotFoundError("No local/results/mesh_variants_* reference run found")
     return candidates[-1]
-
-
-def read_grid(path: Path) -> tuple[list[float], list[float], list[int]]:
-    lower: list[float] | None = None
-    upper: list[float] | None = None
-    resolution: list[int] | None = None
-
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        for key in ("min", "max", "resolution"):
-            prefix = f"{key}:"
-            if stripped.startswith(prefix):
-                items = [
-                    item.strip()
-                    for item in stripped.removeprefix(prefix).strip(" []").split(",")
-                ]
-                if key == "min":
-                    lower = [float(item) for item in items]
-                elif key == "max":
-                    upper = [float(item) for item in items]
-                else:
-                    resolution = [int(item) for item in items]
-
-    if lower is None or upper is None or resolution is None:
-        raise ValueError(f"Could not read voxel_grid from {path}")
-    return lower, upper, resolution
 
 
 def read_ply_bbox(path: Path) -> tuple[list[float], list[float]]:
@@ -167,7 +139,9 @@ def parse_args() -> argparse.Namespace:
         action="append",
         help="process only this object; omit to process all objects",
     )
-    parser.add_argument("--methods", nargs="+", choices=METHODS, default=list(METHODS))
+    parser.add_argument(
+        "--methods", nargs="+", choices=COLOR_METHODS, default=list(COLOR_METHODS)
+    )
     parser.add_argument("--resolution-scale", type=float, default=2.0)
     parser.add_argument("--boundary-margin-voxels", type=float, default=8.0)
     parser.add_argument("--expand-fraction", type=float, default=0.10)
@@ -194,6 +168,7 @@ def main() -> int:
     binary = args.binary.resolve()
     methods = tuple(args.methods)
     names = object_names(objects_root, args.object)
+    reference_grids = read_batch_grids(reference / "voxel_carving_batch.yaml")
     if not binary.is_file():
         raise FileNotFoundError(f"Voxel carving binary not found: {binary}")
     output_root.mkdir(parents=True, exist_ok=True)
@@ -207,8 +182,9 @@ def main() -> int:
             print("  already complete", flush=True)
             continue
 
-        source_config = reference / object_name / "voxel_carving.source.yaml"
-        lower, upper, resolution = read_grid(source_config)
+        if object_name not in reference_grids:
+            raise KeyError(f"{object_name} is not listed in {reference}")
+        lower, upper, resolution = reference_grids[object_name]
         hull = reference / object_name / "average" / "voxel_hull.ply"
         bbox = read_ply_bbox(hull) if hull.is_file() else None
         lower, upper, resolution, expanded = expanded_grid(
@@ -225,26 +201,9 @@ def main() -> int:
             print(f"  expanded: {', '.join(expanded)}", flush=True)
         print(f"  resolution: {resolution}", flush=True)
 
-        object_config = object_output / "object.source.yaml"
-        voxel_config = object_output / "voxel_carving_methods.yaml"
-        write_configs(
-            object_name=object_name,
-            objects_root=objects_root,
-            object_config=object_config,
-            voxel_config=voxel_config,
-            output_dir=object_output,
-            foreground_threshold=1,
-            volume_min=lower,
-            volume_max=upper,
-            resolution=resolution,
-            color_methods=list(methods),
-            no_color=False,
-        )
-        shutil.copy2(voxel_config, object_output / "voxel_carving.source.yaml")
         batch_objects.append(
             BatchObjectConfig(
                 name=object_name,
-                object_config=object_config,
                 volume_min=lower,
                 volume_max=upper,
                 resolution=resolution,
@@ -258,9 +217,11 @@ def main() -> int:
         # Run the C++ binary once; it distributes objects according to workers.
         write_batch_config(
             batch_config=batch_config,
+            objects_root=objects_root,
             output_dir=output_root,
             workers=args.workers,
             objects=batch_objects,
+            foreground_threshold=1,
         )
         run([binary, batch_config], cwd=ROOT, log=output_root / "voxel_carving.log")
 

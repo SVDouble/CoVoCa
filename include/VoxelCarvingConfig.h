@@ -25,9 +25,16 @@ struct VoxelCarvingConfig {
   std::optional<ColorReconstructionConfig> color;
 };
 
+struct VoxelCarvingObjectPaths {
+  std::filesystem::path images_dir;
+  std::filesystem::path masks_dir;
+  std::filesystem::path camera_dir;
+};
+
 struct VoxelCarvingObjectConfig {
   std::string name;
-  std::filesystem::path object_config;
+  VoxelCarvingObjectPaths paths;
+  std::optional<int> foreground_threshold;
   VoxelGridConfig voxel_grid;
   std::optional<ColorReconstructionConfig> color;
 };
@@ -38,7 +45,6 @@ struct VoxelCarvingBatchConfig {
   std::vector<VoxelCarvingObjectConfig> objects;
 };
 
-VoxelCarvingConfig loadVoxelCarvingConfig(const std::filesystem::path &path);
 VoxelCarvingBatchConfig
 loadVoxelCarvingBatchConfig(const std::filesystem::path &path);
 VoxelGrid createVoxelGrid(const VoxelGridConfig &config);

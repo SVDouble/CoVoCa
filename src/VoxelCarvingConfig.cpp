@@ -42,25 +42,6 @@ void reconstructColorAndSave(VoxelGrid voxel_grid,
 
 } // namespace
 
-VoxelCarvingConfig loadVoxelCarvingConfig(const std::filesystem::path &path) {
-  auto result = rfl::yaml::load<VoxelCarvingConfig>(path.string());
-  if (!result) {
-    throw std::runtime_error("invalid voxel carving config " + path.string() +
-                             ": " + result.error().what());
-  }
-
-  VoxelCarvingConfig config = result.value();
-  if (config.output_dir.empty()) {
-    throw std::runtime_error("voxel carving config has no output_dir: " +
-                             path.string());
-  }
-
-  const fs::path base =
-      path.has_parent_path() ? path.parent_path() : fs::current_path();
-  config.output_dir = resolve(base, config.output_dir);
-  return config;
-}
-
 VoxelCarvingBatchConfig
 loadVoxelCarvingBatchConfig(const std::filesystem::path &path) {
   auto result = rfl::yaml::load<VoxelCarvingBatchConfig>(path.string());
@@ -91,12 +72,15 @@ loadVoxelCarvingBatchConfig(const std::filesystem::path &path) {
     if (object.name.empty()) {
       throw std::runtime_error("batch voxel carving object has an empty name");
     }
-    if (object.object_config.empty()) {
+    if (object.paths.images_dir.empty() || object.paths.masks_dir.empty() ||
+        object.paths.camera_dir.empty()) {
       throw std::runtime_error("batch voxel carving object " + object.name +
-                               " has no object_config");
+                               " has incomplete paths");
     }
 
-    object.object_config = resolve(base, object.object_config);
+    object.paths.images_dir = resolve(base, object.paths.images_dir);
+    object.paths.masks_dir = resolve(base, object.paths.masks_dir);
+    object.paths.camera_dir = resolve(base, object.paths.camera_dir);
   }
 
   return config;

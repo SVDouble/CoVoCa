@@ -1,14 +1,11 @@
 # CoVoCa Voxel Carving
 
-This project reconstructs object meshes from calibrated images, masks, and
-camera poses using voxel carving, then optionally reconstructs mesh colors from
-the available views.
+This repository reconstructs object meshes from calibrated images, masks, and
+camera poses. The C++ executable does the voxel carving and optional color
+reconstruction. Python scripts help with setup, config generation, missing masks
+or camera files, and panoramas.
 
-Keep the downloaded dataset collection under `local/datasets`. Each subfolder is
-one object to reconstruct. Do not commit images, masks, camera files, meshes, or
-panoramas.
-
-Each object must have:
+Expected local data layout:
 
 ```text
 local/datasets/<object>/
@@ -19,139 +16,116 @@ local/datasets/<object>/
     poses.yaml
 ```
 
-The LRZ archive should already include all three folders. The C++ loader reads
-camera YAML directly. The Python helpers call this folder `--objects-root`;
-the default stays `local/datasets` so already generated masks and camera YAML
-continue to work.
-
 ## Build
-
-Use a C++23-capable compiler.
 
 ```bash
 cmake -S . -B build
 cmake --build build -j
 ```
 
-## Generate Starter Configs
+## Usual Run
 
-Use the Python helper once per object to create editable YAML configs:
+Generate one batch config for all objects:
 
 ```bash
 uv run --script --python 3.14 datasets/create_loader_config.py \
-  --object <object> \
-  --volume-min <x> <y> <z> \
-  --volume-max <x> <y> <z> \
-  --resolution <nx> <ny> <nz> \
-  --color-methods average best_view weighted_average median
-```
-
-This writes:
-
-```text
-local/configs/<object>.object.yaml
-local/configs/<object>.voxel_carving.yaml
-```
-
-## Edit The Configs
-
-The object config should usually not need manual edits:
-
-```yaml
-schema: covoca.branch1.object.v1
-name: <object>
-
-paths:
-  images_dir: local/datasets/<object>/images
-  masks_dir: local/datasets/<object>/masks
-  camera_dir: local/datasets/<object>/camera
-foreground_threshold: 1
-```
-
-Edit the voxel-carving config to tune reconstruction quality:
-
-```yaml
-schema: covoca.branch1.voxel_carving.v1
-name: <object>
-output_dir: local/results/manual/<object>
-
-voxel_grid:
-  min: [<x>, <y>, <z>]
-  max: [<x>, <y>, <z>]
-  resolution: [<nx>, <ny>, <nz>]
-
-color:
-  methods: [average, best_view, weighted_average, median]
-```
-
-Use bounds that contain the object in board coordinates. Higher resolution gives
-more detail but increases runtime. `output_dir` is resolved relative to the
-voxel-carving config file unless it is absolute. Remove the `color` section to
-skip color reconstruction.
-
-## Run Voxel Carving
-
-For one object, run the C++ executable with the object and voxel config:
-
-```bash
-OBJECT=<object>
-./build/main \
-  "local/configs/$OBJECT.object.yaml" \
-  "local/configs/$OBJECT.voxel_carving.yaml"
-```
-
-With one color method, `voxel_grid.ply` and `voxel_hull.ply` are written into
-`output_dir`. With multiple methods, each method gets its own subfolder.
-
-To carve multiple objects in one run, create a batch config:
-
-```yaml
-schema: covoca.branch1.voxel_carving_batch.v1
-workers: 4
-output_dir: ../results/manual
-
-objects:
-  - name: cat
-    object_config: cat.object.yaml
-    voxel_grid:
-      min: [<x>, <y>, <z>]
-      max: [<x>, <y>, <z>]
-      resolution: [<nx>, <ny>, <nz>]
-    color:
-      methods: [average, best_view, weighted_average, median]
-```
-
-Paths in the batch config are relative to the batch config file. `output_dir`
-is shared; each object writes to `output_dir/<name>`. `workers` sets how many
-objects are carved in parallel.
-
-```bash
-./build/main local/configs/voxel_carving_batch.yaml
-```
-
-## Optional Setup Helper
-
-`datasets/run_pipeline.py` is still useful for initial setup or batch runs. It
-uses existing `local/datasets` by default and can generate missing masks or
-camera YAML from images. It writes one batch config and passes that to the C++
-executable:
-
-```bash
-uv run --script --python 3.14 datasets/run_pipeline.py \
-  --volume-min <x> <y> <z> \
-  --volume-max <x> <y> <z> \
-  --resolution <nx> <ny> <nz> \
+  --batch-config local/configs/all_objects.voxel_carving_batch.yaml \
+  --volume-min -0.02 -0.22 0.0 \
+  --volume-max 0.2 0.06 0.22 \
+  --resolution 120 150 120 \
   --color-methods average best_view weighted_average median \
   --workers 4
 ```
 
-Pass `--object <object>` to limit it to one object. Downloading is opt-in via
-`--dataset-url` or `--archive`. The generated batch config is written to
-`local/results/<run>/voxel_carving_batch.yaml`.
+Run voxel carving:
+
+```bash
+./build/main local/configs/all_objects.voxel_carving_batch.yaml
+```
+
+The helper uses every object folder under `local/datasets` unless `--object` is
+passed. Outputs go to the config's `output_dir`, with one folder per object.
+When several color methods are enabled, each method gets its own output folder.
+
+To make a config for only one object:
+
+```bash
+uv run --script --python 3.14 datasets/create_loader_config.py \
+  --object cat \
+  --batch-config local/configs/cat.voxel_carving_batch.yaml \
+  --volume-min -0.02 -0.22 0.0 \
+  --volume-max 0.2 0.06 0.22 \
+  --resolution 120 150 120 \
+  --color-methods average best_view weighted_average median
+
+./build/main local/configs/cat.voxel_carving_batch.yaml
+```
+
+## Batch Config
+
+A batch config can contain one object or many objects:
+
+```yaml
+schema: covoca.branch1.voxel_carving_batch.v1
+workers: 4
+output_dir: ../results/manual/all_objects
+objects:
+  - name: cat
+    paths:
+      images_dir: ../datasets/cat/images
+      masks_dir: ../datasets/cat/masks
+      camera_dir: ../datasets/cat/camera
+    foreground_threshold: 1
+    voxel_grid:
+      min: [-0.02, -0.22, 0.0]
+      max: [0.2, 0.06, 0.22]
+      resolution: [120, 150, 120]
+    color:
+      methods: [average, best_view, weighted_average, median]
+```
+
+Edit `voxel_grid.min`, `voxel_grid.max`, and `voxel_grid.resolution` when an
+object is clipped, too loose, or too slow to reconstruct. Remove `color` for
+geometry-only output.
+
+## Full Setup Helper
+
+If you are starting from images and want the script to prepare missing masks and
+camera YAML before reconstruction, use:
+
+```bash
+uv run --script --python 3.14 datasets/run_pipeline.py \
+  --volume-min -0.02 -0.22 0.0 \
+  --volume-max 0.2 0.06 0.22 \
+  --resolution 120 150 120 \
+  --color-methods average best_view weighted_average median \
+  --workers 4
+```
+
+Useful options:
+
+```bash
+--object <object>          # process only this object
+--archive <path>           # install objects from a local archive first
+--dataset-url <url>        # download and install objects first
+--regenerate-masks         # replace existing masks
+--regenerate-camera        # replace existing camera YAML
+```
+
+## Quick Checks
+
+Before reconstruction, each object should have:
+
+```bash
+ls local/datasets/<object>/images
+ls local/datasets/<object>/masks
+ls local/datasets/<object>/camera/intrinsics.yaml
+ls local/datasets/<object>/camera/poses.yaml
+```
 
 ## Panoramas
 
-After mesh variants exist, create comparison panoramas with:
+After mesh variants exist:
 
 ```bash
 uv run --script --python 3.14 datasets/generate_mesh_panoramas.py \
@@ -160,6 +134,3 @@ uv run --script --python 3.14 datasets/generate_mesh_panoramas.py \
   --tile-height 480 \
   --combined-scales 0.5 1.0
 ```
-
-Labels scale with tile size and use a larger default label scale. Increase
-`--label-scale` further if labels still need to be larger.

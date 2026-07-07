@@ -6,10 +6,14 @@ output_dir: ../local/results/manual
 
 objects:
   - name: my_object
-    object_config: my_object.object.yaml
+    paths:
+      images_dir: ../local/datasets/my_object/images
+      masks_dir: ../local/datasets/my_object/masks
+      camera_dir: ../local/datasets/my_object/camera
+    foreground_threshold: 1
     voxel_grid:
-      min: [-0.041897, 0.001126, -0.037845]
-      max: [0.030897, 0.088227, 0.035495]
-      resolution: [100, 100, 100]
+      min: [-0.02, -0.22, 0.0]
+      max: [0.2, 0.06, 0.22]
+      resolution: [120, 150, 120]
     color:
       methods: [average, best_view, weighted_average, median]

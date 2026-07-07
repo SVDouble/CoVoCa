@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <atomic>
 #include <exception>
-#include <filesystem>
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -15,12 +14,10 @@
 #include "VoxelCarver.h"
 #include "VoxelCarvingConfig.h"
 
-namespace fs = std::filesystem;
-
 namespace {
-void carveObject(const fs::path &object_config_path,
+void carveObject(const VoxelCarvingObjectConfig &object,
                  const VoxelCarvingConfig &config) {
-  std::vector<ObjectView> object_views = loadObjectViews(object_config_path);
+  std::vector<ObjectView> object_views = loadObjectViews(object);
   VoxelGrid voxel_grid = createVoxelGrid(config.voxel_grid);
 
   std::cout << "Voxelgrid size: " << voxel_grid.getSize() << std::endl;
@@ -57,7 +54,7 @@ void carveBatch(const VoxelCarvingBatchConfig &config) {
                     << object.name << std::endl;
         }
 
-        carveObject(object.object_config,
+        carveObject(object,
                     VoxelCarvingConfig{config.output_dir / object.name,
                                        object.voxel_grid, object.color});
       } catch (const std::exception &exception) {
@@ -91,25 +88,16 @@ void carveBatch(const VoxelCarvingBatchConfig &config) {
 } // namespace
 
 int main(int argc, char **argv) {
-  if (argc != 2 && argc != 3) {
+  if (argc != 2) {
     std::cerr
-        << "Usage:\n"
-        << "  " << argv[0]
-        << " <object_config.yaml> <voxel_carving_config.yaml>\n"
-        << "  " << argv[0] << " <voxel_carving_batch.yaml>\n\n"
-        << "Object config: images_dir, masks_dir, camera_dir.\n"
-        << "Voxel carving config: voxel_grid and optional color method(s).\n"
-        << "Batch config: workers, output_dir, and objects with object_config "
-           "and voxel_grid.\n";
+        << "Usage:\n  " << argv[0] << " <voxel_carving_batch.yaml>\n\n"
+        << "The batch config contains workers, output_dir, and one or more "
+           "objects with paths and voxel_grid.\n";
     return 1;
   }
 
   try {
-    if (argc == 2) {
-      carveBatch(loadVoxelCarvingBatchConfig(argv[1]));
-    } else {
-      carveObject(argv[1], loadVoxelCarvingConfig(argv[2]));
-    }
+    carveBatch(loadVoxelCarvingBatchConfig(argv[1]));
 
     std::cout << "End" << std::endl;
     return 0;

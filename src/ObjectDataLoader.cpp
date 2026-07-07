@@ -3,7 +3,6 @@
 #include <array>
 #include <iostream>
 #include <map>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -11,22 +10,13 @@
 
 #include <rfl/yaml.hpp>
 
+#include "VoxelCarvingConfig.h"
+
 namespace fs = std::filesystem;
 
 namespace {
 constexpr std::array<const char *, 8> kImageExtensions = {
     ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".ppm", ".pgm"};
-
-struct ObjectDataPaths {
-  fs::path images_dir;
-  fs::path masks_dir;
-  fs::path camera_dir;
-};
-
-struct ObjectDataConfig {
-  ObjectDataPaths paths;
-  std::optional<int> foreground_threshold;
-};
 
 struct CameraIntrinsicsProfile {
   std::vector<std::vector<double>> matrix;
@@ -51,26 +41,6 @@ struct CalibratedView {
   std::string image_name;
   Camera camera;
 };
-
-fs::path resolve(const fs::path &base, const fs::path &path) {
-  return path.empty() || path.is_absolute() ? path : base / path;
-}
-
-ObjectDataConfig loadObjectDataConfig(const fs::path &path) {
-  auto result = rfl::yaml::load<ObjectDataConfig>(path.string());
-  if (!result) {
-    throw std::runtime_error("invalid object config " + path.string() + ": " +
-                             result.error().what());
-  }
-
-  ObjectDataConfig config = result.value();
-  const fs::path base =
-      path.has_parent_path() ? path.parent_path() : fs::current_path();
-  config.paths.images_dir = resolve(base, config.paths.images_dir);
-  config.paths.masks_dir = resolve(base, config.paths.masks_dir);
-  config.paths.camera_dir = resolve(base, config.paths.camera_dir);
-  return config;
-}
 
 fs::path findByNameOrStem(const fs::path &directory, const fs::path &name) {
   const fs::path exact = directory / name.filename();
@@ -183,30 +153,30 @@ std::vector<CalibratedView> loadCalibratedViews(const fs::path &camera_dir) {
 
 } // namespace
 
-std::vector<ObjectView> loadObjectViews(const fs::path &config_path) {
-  ObjectDataConfig config = loadObjectDataConfig(config_path);
-  if (!fs::is_directory(config.paths.images_dir)) {
+std::vector<ObjectView>
+loadObjectViews(const VoxelCarvingObjectConfig &object) {
+  if (!fs::is_directory(object.paths.images_dir)) {
     throw std::runtime_error("images_dir is not a directory: " +
-                             config.paths.images_dir.string());
+                             object.paths.images_dir.string());
   }
-  if (!fs::is_directory(config.paths.masks_dir)) {
+  if (!fs::is_directory(object.paths.masks_dir)) {
     throw std::runtime_error("masks_dir is not a directory: " +
-                             config.paths.masks_dir.string());
+                             object.paths.masks_dir.string());
   }
   std::vector<CalibratedView> calibrated_views =
-      loadCalibratedViews(config.paths.camera_dir);
+      loadCalibratedViews(object.paths.camera_dir);
 
   std::vector<ObjectView> object_views;
   object_views.reserve(calibrated_views.size());
 
   for (CalibratedView &view : calibrated_views) {
     const fs::path image_path =
-        findByNameOrStem(config.paths.images_dir, view.image_name);
+        findByNameOrStem(object.paths.images_dir, view.image_name);
     cv::Mat image = readImage(image_path, cv::IMREAD_COLOR);
     const fs::path mask_path =
-        findByNameOrStem(config.paths.masks_dir, image_path);
+        findByNameOrStem(object.paths.masks_dir, image_path);
     cv::Mat mask = readImage(mask_path, cv::IMREAD_GRAYSCALE);
-    cv::threshold(mask, mask, config.foreground_threshold.value_or(1), 255,
+    cv::threshold(mask, mask, object.foreground_threshold.value_or(1), 255,
                   cv::THRESH_BINARY);
 
     if (mask.empty() || mask.size() != image.size()) {

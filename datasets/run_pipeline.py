@@ -1,6 +1,9 @@
 #!/usr/bin/env python3.14
 # /// script
 # requires-python = ">=3.14"
+# dependencies = [
+#   "pyyaml",
+# ]
 # ///
 """Prepare missing assets, create configs, then run voxel carving."""
 
@@ -16,18 +19,24 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
-from create_loader_config import BatchObjectConfig, write_batch_config, write_configs
+from create_loader_config import (
+    BatchObjectConfig,
+    COLOR_METHODS,
+    DEFAULT_RESOLUTION,
+    DEFAULT_VOLUME_MAX,
+    DEFAULT_VOLUME_MIN,
+    object_names,
+    write_batch_config,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 OBJECTS_ROOT = Path("local/datasets")
 DOWNLOADS = Path("local/downloads")
 MASKS = Path("local/annotations/segmentation_masks")
 CAMERAS = Path("local/annotations/camera")
-CONFIGS = Path("local/configs")
 RESULTS = Path("local/results")
 UV = ["uv", "run", "--script", "--python", "3.14"]
 UA = {"User-Agent": "CoVoCa dataset pipeline"}
-COLOR_METHODS = ("average", "best_view", "weighted_average", "median")
 DEFAULT_WORKERS = min(4, os.cpu_count() or 1)
 
 
@@ -115,19 +124,6 @@ def unpack(archive: Path, root: Path) -> list[str]:
             shutil.copytree(object_dir, root / object_dir.name, dirs_exist_ok=True)
             print(f"Installed {object_dir.name} -> {root / object_dir.name}")
         return sorted(path.name for path in objects)
-
-
-def objects(root: Path, selected: list[str] | None) -> list[str]:
-    keep = set(selected or [])
-    names = sorted(
-        path.name
-        for path in root.iterdir()
-        if path.is_dir() and (path / "images").is_dir()
-    )
-    names = [name for name in names if not keep or name in keep]
-    if not names:
-        raise FileNotFoundError(f"No object folders with images/ found under {root}")
-    return names
 
 
 def selected_object_args(names: list[str]) -> list[object]:
@@ -287,33 +283,6 @@ def prepare_assets(
         )
 
 
-def create_loader_configs(
-    args: argparse.Namespace,
-    objects_root: Path,
-    configs_root: Path,
-    results_run: Path,
-    names: list[str],
-) -> None:
-    for name in names:
-        object_config = configs_root / f"{name}.object.yaml"
-        voxel_config = configs_root / f"{name}.voxel_carving.yaml"
-        write_configs(
-            object_name=name,
-            objects_root=objects_root,
-            object_config=object_config,
-            voxel_config=voxel_config,
-            output_dir=results_run / name,
-            foreground_threshold=1,
-            volume_min=args.volume_min,
-            volume_max=args.volume_max,
-            resolution=args.resolution,
-            color_methods=args.color_methods,
-            no_color=args.no_color,
-        )
-        print(f"Wrote {object_config}")
-        print(f"Wrote {voxel_config}")
-
-
 def vertices(path: Path) -> int:
     with path.open(encoding="utf-8") as stream:
         return next(
@@ -344,7 +313,6 @@ def run_reconstructions(
     args: argparse.Namespace,
     binary: Path,
     objects_root: Path,
-    configs_root: Path,
     results_run: Path,
     names: list[str],
 ) -> Path:
@@ -360,14 +328,9 @@ def run_reconstructions(
             objects_root / name / "camera", result / "camera", dirs_exist_ok=True
         )
 
-        object_config = configs_root / f"{name}.object.yaml"
-        voxel_config = configs_root / f"{name}.voxel_carving.yaml"
-        shutil.copy2(object_config, result / "object.yaml")
-        shutil.copy2(voxel_config, result / "voxel_carving.yaml")
         batch_objects.append(
             BatchObjectConfig(
                 name=name,
-                object_config=object_config,
                 volume_min=args.volume_min,
                 volume_max=args.volume_max,
                 resolution=args.resolution,
@@ -380,9 +343,11 @@ def run_reconstructions(
     # Run the C++ binary once; it distributes objects according to workers.
     write_batch_config(
         batch_config=batch_config,
+        objects_root=objects_root,
         output_dir=results_run,
         workers=args.workers,
         objects=batch_objects,
+        foreground_threshold=1,
     )
     run(
         [binary, batch_config.resolve()],
@@ -449,11 +414,9 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="reuse a camera_intrinsics.yaml for camera generation",
     )
-    parser.add_argument(
-        "--volume-min", nargs=3, type=float, default=[-0.05, 0.0, -0.05]
-    )
-    parser.add_argument("--volume-max", nargs=3, type=float, default=[0.05, 0.10, 0.05])
-    parser.add_argument("--resolution", nargs=3, type=int, default=[100, 100, 100])
+    parser.add_argument("--volume-min", nargs=3, type=float, default=DEFAULT_VOLUME_MIN)
+    parser.add_argument("--volume-max", nargs=3, type=float, default=DEFAULT_VOLUME_MAX)
+    parser.add_argument("--resolution", nargs=3, type=int, default=DEFAULT_RESOLUTION)
     parser.add_argument(
         "--color-methods", nargs="+", choices=COLOR_METHODS, default=["average"]
     )
@@ -478,17 +441,13 @@ def main() -> int:
         (args.objects_root, args.downloads_root, args.results_root, args.build_dir),
     )
     masks_root, cameras_root = map(full, (args.masks_root, args.camera_root))
-    configs_root = full(CONFIGS)
 
     prepare_download(args, downloads_root, objects_root)
-    names = objects(objects_root, args.object)
+    names = object_names(objects_root, args.object)
     prepare_assets(args, objects_root, masks_root, cameras_root, names)
     results_run = results_root / datetime.now().strftime("%Y%m%d_%H%M%S")
-    create_loader_configs(args, objects_root, configs_root, results_run, names)
     binary = build_binary(args, build_dir)
-    results_run = run_reconstructions(
-        args, binary, objects_root, configs_root, results_run, names
-    )
+    results_run = run_reconstructions(args, binary, objects_root, results_run, names)
 
     print(f"Pipeline output: {results_run}")
     return 0
