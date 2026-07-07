@@ -1,15 +1,15 @@
 schema: covoca.branch1.voxel_carving_batch.v1
 
-# Relative paths are resolved from this file.
+# Relative paths are resolved from the directory where ./build/main is run.
 workers: 4
-output_dir: ../local/results/manual
+output_dir: ./local/results/{datetime}
 
 objects:
   - name: my_object
     paths:
-      images_dir: ../local/datasets/my_object/images
-      masks_dir: ../local/datasets/my_object/masks
-      camera_dir: ../local/datasets/my_object/camera
+      images_dir: ./local/datasets/my_object/images
+      masks_dir: ./local/datasets/my_object/masks
+      camera_dir: ./local/datasets/my_object/camera
     foreground_threshold: 1
     voxel_grid:
       min: [-0.02, -0.22, 0.0]

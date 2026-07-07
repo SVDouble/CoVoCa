@@ -13,14 +13,51 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+from yaml.nodes import MappingNode, Node, ScalarNode
 
 OBJECTS_ROOT = Path("local/datasets")
 CONFIGS = Path("local/configs")
-RESULTS = Path("local/results/manual")
+DEFAULT_OUTPUT_DIR = Path("local/results/{datetime}")
 COLOR_METHODS = ("average", "best_view", "weighted_average", "median")
 DEFAULT_VOLUME_MIN = [-0.02, -0.22, 0.0]
 DEFAULT_VOLUME_MAX = [0.2, 0.06, 0.22]
 DEFAULT_RESOLUTION = [120, 150, 120]
+MAPPING_ANCHOR_NAMES = ("voxel_grid", "color")
+SCALAR_ANCHOR_NAMES = ("foreground_threshold",)
+
+
+@dataclass(frozen=True)
+class AnchoredInt:
+    value: int
+
+
+class BatchConfigDumper(yaml.SafeDumper):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._mapping_anchor_index = 0
+        self._scalar_anchor_index = 0
+
+    def generate_anchor(self, node: Node) -> str:
+        if isinstance(node, MappingNode) and self._mapping_anchor_index < len(
+            MAPPING_ANCHOR_NAMES
+        ):
+            anchor = MAPPING_ANCHOR_NAMES[self._mapping_anchor_index]
+            self._mapping_anchor_index += 1
+            return anchor
+        if isinstance(node, ScalarNode) and self._scalar_anchor_index < len(
+            SCALAR_ANCHOR_NAMES
+        ):
+            anchor = SCALAR_ANCHOR_NAMES[self._scalar_anchor_index]
+            self._scalar_anchor_index += 1
+            return anchor
+        return super().generate_anchor(node)
+
+
+def represent_anchored_int(dumper: BatchConfigDumper, data: AnchoredInt) -> Node:
+    return dumper.represent_scalar("tag:yaml.org,2002:int", str(data.value))
+
+
+BatchConfigDumper.add_representer(AnchoredInt, represent_anchored_int)
 
 
 @dataclass(frozen=True)
@@ -33,10 +70,10 @@ class BatchObjectConfig:
     no_color: bool
 
 
-def config_path(path: Path, config_file: Path) -> str:
+def run_path(path: Path) -> str:
     absolute = Path(os.path.abspath(path))
-    base = Path(os.path.abspath(config_file.parent))
-    return Path(os.path.relpath(absolute, base)).as_posix()
+    text = Path(os.path.relpath(absolute, Path.cwd())).as_posix()
+    return text if text.startswith(".") else f"./{text}"
 
 
 def object_paths(objects_root: Path, object_name: str) -> tuple[Path, Path, Path]:
@@ -115,33 +152,53 @@ def write_batch_config(
     document = {
         "schema": "covoca.branch1.voxel_carving_batch.v1",
         "workers": workers,
-        "output_dir": config_path(output_dir, batch_config),
+        "output_dir": run_path(output_dir),
         "objects": [],
     }
+    voxel_grids: dict[
+        tuple[tuple[float, ...], tuple[float, ...], tuple[int, ...]], dict
+    ] = {}
+    colors: dict[tuple[str, ...], dict] = {}
+    threshold = AnchoredInt(foreground_threshold)
 
     for entry in objects:
         if validate_inputs:
             validate_object_data(objects_root, entry.name)
         images, masks, camera = object_paths(objects_root, entry.name)
+        grid_key = (
+            tuple(entry.volume_min),
+            tuple(entry.volume_max),
+            tuple(entry.resolution),
+        )
+        voxel_grid = voxel_grids.setdefault(
+            grid_key,
+            {
+                "min": list(entry.volume_min),
+                "max": list(entry.volume_max),
+                "resolution": list(entry.resolution),
+            },
+        )
         object_entry = {
             "name": entry.name,
             "paths": {
-                "images_dir": config_path(images, batch_config),
-                "masks_dir": config_path(masks, batch_config),
-                "camera_dir": config_path(camera, batch_config),
+                "images_dir": run_path(images),
+                "masks_dir": run_path(masks),
+                "camera_dir": run_path(camera),
             },
-            "foreground_threshold": foreground_threshold,
-            "voxel_grid": {
-                "min": entry.volume_min,
-                "max": entry.volume_max,
-                "resolution": entry.resolution,
-            },
+            "foreground_threshold": threshold,
+            "voxel_grid": voxel_grid,
         }
         if not entry.no_color:
-            object_entry["color"] = {"methods": entry.color_methods}
+            methods_key = tuple(entry.color_methods)
+            object_entry["color"] = colors.setdefault(
+                methods_key, {"methods": list(entry.color_methods)}
+            )
         document["objects"].append(object_entry)
 
-    batch_config.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    batch_config.write_text(
+        yaml.dump(document, Dumper=BatchConfigDumper, sort_keys=False),
+        encoding="utf-8",
+    )
 
 
 def batch_objects(
@@ -236,9 +293,7 @@ def main() -> int:
         if len(names) == 1
         else "all_objects.voxel_carving_batch.yaml"
     )
-    output_dir = args.output_dir or (
-        RESULTS if len(names) == 1 else RESULTS / "all_objects"
-    )
+    output_dir = args.output_dir or DEFAULT_OUTPUT_DIR
     write_batch_config(
         batch_config=batch_config,
         objects_root=args.objects_root,

@@ -44,8 +44,11 @@ Run voxel carving:
 ```
 
 The helper uses every object folder under `local/datasets` unless `--object` is
-passed. Outputs go to the config's `output_dir`, with one folder per object.
-When several color methods are enabled, each method gets its own output folder.
+passed. Generated configs use paths relative to the directory where you run the
+C++ executable. From the repo root, results go to
+`./local/results/<datetime>/<object>/...`. The config uses `{datetime}` as a
+placeholder, and C++ replaces it when the run starts. When several color methods
+are enabled, each method gets its own output folder.
 
 To make a config for only one object:
 
@@ -68,13 +71,13 @@ A batch config can contain one object or many objects:
 ```yaml
 schema: covoca.branch1.voxel_carving_batch.v1
 workers: 4
-output_dir: ../results/manual/all_objects
+output_dir: ./local/results/{datetime}
 objects:
   - name: cat
     paths:
-      images_dir: ../datasets/cat/images
-      masks_dir: ../datasets/cat/masks
-      camera_dir: ../datasets/cat/camera
+      images_dir: ./local/datasets/cat/images
+      masks_dir: ./local/datasets/cat/masks
+      camera_dir: ./local/datasets/cat/camera
     foreground_threshold: 1
     voxel_grid:
       min: [-0.02, -0.22, 0.0]

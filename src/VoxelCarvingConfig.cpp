@@ -1,6 +1,12 @@
 #include "VoxelCarvingConfig.h"
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include <rfl/yaml.hpp>
@@ -10,8 +16,37 @@
 namespace fs = std::filesystem;
 
 namespace {
-fs::path resolve(const fs::path &base, const fs::path &path) {
-  return path.empty() || path.is_absolute() ? path : base / path;
+std::string currentTimestamp() {
+  const auto now = std::chrono::system_clock::now();
+  const std::time_t time = std::chrono::system_clock::to_time_t(now);
+  std::tm local_time{};
+  localtime_r(&time, &local_time);
+
+  std::ostringstream stream;
+  stream << std::put_time(&local_time, "%Y%m%d_%H%M%S");
+  return stream.str();
+}
+
+fs::path expandOutputTemplate(const fs::path &path) {
+  std::string text = path.string();
+  constexpr std::string_view placeholder = "{datetime}";
+  const std::string timestamp = currentTimestamp();
+
+  for (std::size_t pos = text.find(placeholder); pos != std::string::npos;
+       pos = text.find(placeholder, pos + timestamp.size())) {
+    text.replace(pos, placeholder.size(), timestamp);
+  }
+
+  if (text.find('{') != std::string::npos ||
+      text.find('}') != std::string::npos) {
+    throw std::runtime_error("unsupported output_dir template: " +
+                             path.string());
+  }
+  return fs::path(text);
+}
+
+fs::path resolveRunPath(const fs::path &path) {
+  return path.empty() || path.is_absolute() ? path : fs::current_path() / path;
 }
 
 ColorMethod colorMethod(const std::string &name) {
@@ -64,9 +99,7 @@ loadVoxelCarvingBatchConfig(const std::filesystem::path &path) {
                              path.string());
   }
 
-  const fs::path base =
-      path.has_parent_path() ? path.parent_path() : fs::current_path();
-  config.output_dir = resolve(base, config.output_dir);
+  config.output_dir = resolveRunPath(expandOutputTemplate(config.output_dir));
 
   for (VoxelCarvingObjectConfig &object : config.objects) {
     if (object.name.empty()) {
@@ -78,9 +111,9 @@ loadVoxelCarvingBatchConfig(const std::filesystem::path &path) {
                                " has incomplete paths");
     }
 
-    object.paths.images_dir = resolve(base, object.paths.images_dir);
-    object.paths.masks_dir = resolve(base, object.paths.masks_dir);
-    object.paths.camera_dir = resolve(base, object.paths.camera_dir);
+    object.paths.images_dir = resolveRunPath(object.paths.images_dir);
+    object.paths.masks_dir = resolveRunPath(object.paths.masks_dir);
+    object.paths.camera_dir = resolveRunPath(object.paths.camera_dir);
   }
 
   return config;
@@ -96,8 +129,7 @@ VoxelGrid createVoxelGrid(const VoxelGridConfig &config) {
 void saveVoxelCarvingResult(VoxelGrid voxel_grid,
                             const std::vector<ObjectView> &views,
                             const VoxelCarvingConfig &config) {
-  // Output paths come from config so runs do not depend on the launch
-  // directory.
+  // Output paths were resolved when the batch config was loaded.
   if (!config.color) {
     saveVoxelGridAndHull(voxel_grid, config.output_dir);
     return;
