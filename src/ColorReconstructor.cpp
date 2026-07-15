@@ -128,11 +128,15 @@ void ColorReconstructor::bestViewSelection() {
     if (samples.empty())
       continue;
 
-    // Select the sample with the highest center score (closest to image center)
+    // Select the sample with the highest score combining centerScore and distance
     const ColorSample *best = &samples[0];
+    double best_score = best->centerScore / (best->distance * best->distance + 1e-6);
+
     for (size_t j = 1; j < samples.size(); ++j) {
-      if (samples[j].centerScore > best->centerScore) {
+      double current_score = samples[j].centerScore / (samples[j].distance * samples[j].distance + 1e-6);
+      if (current_score > best_score) {
         best = &samples[j];
+        best_score = current_score;
       }
     }
 
