@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Eigen3 REQUIRED)
+find_package(OpenMP REQUIRED)
 find_package(OpenCV 4.7 REQUIRED COMPONENTS
     aruco
     calib3d
@@ -62,6 +63,7 @@ target_include_directories(main PRIVATE
 
 target_link_libraries(main PRIVATE
     Eigen3::Eigen
+    OpenMP::OpenMP_CXX
     ${OpenCV_LIBS}
     ${COVOCA_REFLECTCPP_TARGET}
 )

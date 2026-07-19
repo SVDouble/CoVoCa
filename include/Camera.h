@@ -33,6 +33,9 @@ public:
   // Project a 3D world point to image pixel coordinates
   Eigen::Vector2d projectPoint(const Eigen::Vector3d &_point_world) const;
 
+  // Project a 3D world point to homogeneous image coordinates (x, y, z_cam)
+  Eigen::Vector3d projectPointHomogeneous(const Eigen::Vector3d &_point_world) const;
+
 private:
   void updateProjectionMatrix();
 

@@ -53,13 +53,18 @@ Camera::cameraToWorld(const Eigen::Vector3d &_point_camera) const {
 
 Eigen::Vector2d
 Camera::projectPoint(const Eigen::Vector3d &_point_world) const {
+  Eigen::Vector3d pixel_h = projectPointHomogeneous(_point_world);
+  return Eigen::Vector2d(pixel_h(0) / pixel_h(2), pixel_h(1) / pixel_h(2));
+
+}
+
+Eigen::Vector3d
+Camera::projectPointHomogeneous(const Eigen::Vector3d &_point_world) const {
   Eigen::Vector4d point_h;
   point_h << _point_world, 1.0;
-
-  Eigen::Vector3d pixel_h = m_P * point_h;
-
-  return Eigen::Vector2d(pixel_h(0) / pixel_h(2), pixel_h(1) / pixel_h(2));
+  return m_P * point_h;
 }
+
 
 void Camera::updateProjectionMatrix() {
   Eigen::Matrix<double, 3, 4> extrinsic;

@@ -97,6 +97,11 @@ int main(int argc, char **argv) {
   }
 
   try {
+#ifdef _OPENMP
+    std::cout << "OpenMP enabled, max threads: " << omp_get_max_threads() << std::endl;
+#else
+    std::cout << "OpenMP NOT enabled" << std::endl;
+#endif
     carveBatch(loadVoxelCarvingBatchConfig(argv[1]));
 
     std::cout << "End" << std::endl;
