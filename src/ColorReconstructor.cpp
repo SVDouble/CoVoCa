@@ -3,12 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <limits>
 
 ColorReconstructor::ColorReconstructor(VoxelGrid &_voxel_grid,
                                        const std::vector<ObjectView> &_views)
     : m_voxel_grid(_voxel_grid), m_views(_views) {}
 
-// Four methods
 void ColorReconstructor::reconstruct(ColorMethod method) {
 
   // Build one depth (z-)buffer per view before doing any color sampling.
@@ -23,6 +23,9 @@ void ColorReconstructor::reconstruct(ColorMethod method) {
     break;
   case ColorMethod::WeightedAverage:
     weightedColorAveraging();
+    break;
+  case ColorMethod::NormalWeightedAverage:
+    normalWeightedColorAveraging();
     break;
   case ColorMethod::Median:
     medianColorSelection();
@@ -159,13 +162,18 @@ ColorReconstructor::collectColorSamples(const Voxel &voxel) const {
 
     ColorSample sample;
     sample.color = bilinearSampleBGR(view.color_image, xf, yf);
+    const Eigen::Vector3d camera_offset = vc.cam_center - pos_3d;
+    sample.view_direction = camera_offset.squaredNorm() > 0.0
+                                ? camera_offset.normalized()
+                                : Eigen::Vector3d::Zero();
     sample.distance_sq = distSq;
 
     double dxr = xn - vc.cx;
     double dyr = yn - vc.cy;
     double distToCenterSq = dxr * dxr + dyr * dyr;
     sample.centerScore =
-        1.0 - std::sqrt(distToCenterSq / vc.maxDistSq); // 1.0 = at center, 0.0 = at corner
+        1.0 - std::sqrt(distToCenterSq /
+                        vc.maxDistSq); // 1.0 = at center, 0.0 = at corner
 
     samples.push_back(sample);
   }
@@ -173,6 +181,39 @@ ColorReconstructor::collectColorSamples(const Voxel &voxel) const {
   return samples;
 }
 
+// Estimate an outward surface normal from the local occupancy gradient.
+Eigen::Vector3d
+ColorReconstructor::estimateOutwardNormal(const Voxel &voxel) const {
+  const Eigen::Vector3i index = voxel.getIndexPos();
+  const Eigen::Vector3i size = m_voxel_grid.getSize();
+  const Eigen::Vector3d step = m_voxel_grid.getStepSize();
+
+  const auto occupied = [&](int x, int y, int z) {
+    if (x < 0 || y < 0 || z < 0 || x >= size.x() || y >= size.y() ||
+        z >= size.z()) {
+      return 0.0;
+    }
+    return m_voxel_grid.getVoxel(x, y, z).getOccupied() ? 1.0 : 0.0;
+  };
+
+  Eigen::Vector3d gradient(occupied(index.x() + 1, index.y(), index.z()) -
+                               occupied(index.x() - 1, index.y(), index.z()),
+                           occupied(index.x(), index.y() + 1, index.z()) -
+                               occupied(index.x(), index.y() - 1, index.z()),
+                           occupied(index.x(), index.y(), index.z() + 1) -
+                               occupied(index.x(), index.y(), index.z() - 1));
+
+  for (int axis = 0; axis < 3; ++axis) {
+    if (step[axis] > 0.0) {
+      gradient[axis] /= step[axis];
+    }
+  }
+
+  if (gradient.squaredNorm() == 0.0) {
+    return Eigen::Vector3d::Zero();
+  }
+  return -gradient.normalized();
+}
 
 //  Color Averaging
 void ColorReconstructor::colorAveraging() {
@@ -226,12 +267,14 @@ void ColorReconstructor::bestViewSelection() {
     if (samples.empty())
       continue;
 
-    // Select the sample with the highest score combining centerScore and distance
+    // Select the sample with the highest score combining centerScore and
+    // distance
     const ColorSample *best = &samples[0];
     double best_score = best->centerScore / (best->distance_sq + 1e-6);
 
     for (size_t j = 1; j < samples.size(); ++j) {
-      double current_score = samples[j].centerScore / (samples[j].distance_sq + 1e-6);
+      double current_score =
+          samples[j].centerScore / (samples[j].distance_sq + 1e-6);
       if (current_score > best_score) {
         best = &samples[j];
         best_score = current_score;
@@ -246,7 +289,6 @@ void ColorReconstructor::bestViewSelection() {
         static_cast<int>(i));
   }
 }
-
 
 // Weighted Averaging
 void ColorReconstructor::weightedColorAveraging() {
@@ -293,6 +335,56 @@ void ColorReconstructor::weightedColorAveraging() {
   }
 }
 
+// Weighted averaging based on surface-normal and viewing-direction alignment.
+void ColorReconstructor::normalWeightedColorAveraging() {
+  std::cout << "Normal-Weighted Averaging" << std::endl;
+
+  const auto &voxels = m_voxel_grid.getVoxelGrid();
+  const long n = static_cast<long>(voxels.size());
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(dynamic)
+#endif
+  for (long i = 0; i < n; ++i) {
+    const Voxel &voxel = voxels[static_cast<size_t>(i)];
+    if (!voxel.getOccupied())
+      continue;
+
+    const auto samples = collectColorSamples(voxel);
+    if (samples.empty())
+      continue;
+
+    const Eigen::Vector3d normal = estimateOutwardNormal(voxel);
+    const bool has_normal = normal.squaredNorm() > 0.0;
+    Eigen::Vector3d weighted_color = Eigen::Vector3d::Zero();
+    Eigen::Vector3d average_color = Eigen::Vector3d::Zero();
+    double total_weight = 0.0;
+
+    for (const ColorSample &sample : samples) {
+      const double weight =
+          has_normal ? std::max(0.0, normal.dot(sample.view_direction)) : 1.0;
+      weighted_color += sample.color * weight;
+      average_color += sample.color;
+      total_weight += weight;
+    }
+
+    if (total_weight > 0.0) {
+      weighted_color /= total_weight;
+    } else {
+      weighted_color = average_color / static_cast<double>(samples.size());
+    }
+
+    m_voxel_grid.setVoxelColor(
+        Eigen::Vector3i(
+            std::clamp(static_cast<int>(std::round(weighted_color.x())), 0,
+                       255),
+            std::clamp(static_cast<int>(std::round(weighted_color.y())), 0,
+                       255),
+            std::clamp(static_cast<int>(std::round(weighted_color.z())), 0,
+                       255)),
+        static_cast<int>(i));
+  }
+}
 
 // Median Color Selection
 void ColorReconstructor::medianColorSelection() {

@@ -1,6 +1,10 @@
 #pragma once
 
+#if __has_include(<opencv2/aruco.hpp>)
 #include <opencv2/aruco.hpp>
+#else
+#include <opencv2/objdetect/aruco_detector.hpp>
+#endif
 #include <opencv2/opencv.hpp>
 
 struct ThresholdConfig {

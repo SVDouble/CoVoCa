@@ -2,7 +2,6 @@
 
 #include "ExtractorConfigs.h"
 #include "SilhouetteExtractor.h"
-#include <opencv2/aruco.hpp>
 #include <opencv2/opencv.hpp>
 
 class PlanarHomographyExtractor : public SilhouetteExtractor {

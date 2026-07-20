@@ -56,6 +56,8 @@ ColorMethod colorMethod(const std::string &name) {
     return ColorMethod::BestView;
   if (name == "weighted_average")
     return ColorMethod::WeightedAverage;
+  if (name == "normal_weighted_average")
+    return ColorMethod::NormalWeightedAverage;
   if (name == "median")
     return ColorMethod::Median;
   throw std::runtime_error("unsupported color method: " + name);

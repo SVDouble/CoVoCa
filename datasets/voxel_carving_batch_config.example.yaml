@@ -16,4 +16,4 @@ objects:
       max: [0.2, 0.06, 0.22]
       resolution: [120, 150, 120]
     color:
-      methods: [average, best_view, weighted_average, median]
+      methods: [average, best_view, weighted_average, normal_weighted_average, median]

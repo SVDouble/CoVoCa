@@ -12,14 +12,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Eigen3 REQUIRED)
 find_package(OpenMP REQUIRED)
-find_package(OpenCV 4.7 REQUIRED COMPONENTS
-    aruco
-    calib3d
-    core
-    highgui
-    imgcodecs
-    imgproc
-)
+find_package(OpenCV REQUIRED)
+if(OpenCV_VERSION VERSION_LESS 4.7)
+    message(FATAL_ERROR "OpenCV 4.7 or newer is required")
+endif()
 find_package(reflectcpp CONFIG QUIET)
 
 if(NOT TARGET reflectcpp::reflectcpp AND NOT TARGET reflectcpp)

@@ -18,11 +18,16 @@ from yaml.nodes import MappingNode, Node, ScalarNode
 OBJECTS_ROOT = Path("local/datasets")
 CONFIGS = Path("local/configs")
 DEFAULT_OUTPUT_DIR = Path("local/results/{datetime}")
-COLOR_METHODS = ("average", "best_view", "weighted_average", "median")
+COLOR_METHODS = (
+    "average",
+    "best_view",
+    "weighted_average",
+    "normal_weighted_average",
+    "median",
+)
 DEFAULT_VOLUME_MIN = [-0.02, -0.22, 0.0]
 DEFAULT_VOLUME_MAX = [0.2, 0.06, 0.22]
 DEFAULT_RESOLUTION = [120, 150, 120]
-MAPPING_ANCHOR_NAMES = ("voxel_grid", "color")
 SCALAR_ANCHOR_NAMES = ("foreground_threshold",)
 
 
@@ -34,16 +39,16 @@ class AnchoredInt:
 class BatchConfigDumper(yaml.SafeDumper):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._mapping_anchor_index = 0
+        self._mapping_anchor_counts: dict[str, int] = {}
         self._scalar_anchor_index = 0
 
     def generate_anchor(self, node: Node) -> str:
-        if isinstance(node, MappingNode) and self._mapping_anchor_index < len(
-            MAPPING_ANCHOR_NAMES
-        ):
-            anchor = MAPPING_ANCHOR_NAMES[self._mapping_anchor_index]
-            self._mapping_anchor_index += 1
-            return anchor
+        if isinstance(node, MappingNode):
+            keys = {key.value for key, _ in node.value if isinstance(key, ScalarNode)}
+            if keys == {"min", "max", "resolution"}:
+                return self._next_mapping_anchor("voxel_grid")
+            if keys == {"methods"}:
+                return self._next_mapping_anchor("color")
         if isinstance(node, ScalarNode) and self._scalar_anchor_index < len(
             SCALAR_ANCHOR_NAMES
         ):
@@ -51,6 +56,11 @@ class BatchConfigDumper(yaml.SafeDumper):
             self._scalar_anchor_index += 1
             return anchor
         return super().generate_anchor(node)
+
+    def _next_mapping_anchor(self, base: str) -> str:
+        count = self._mapping_anchor_counts.get(base, 0) + 1
+        self._mapping_anchor_counts[base] = count
+        return base if count == 1 else f"{base}_{count}"
 
 
 def represent_anchored_int(dumper: BatchConfigDumper, data: AnchoredInt) -> Node:

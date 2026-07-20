@@ -10,6 +10,7 @@ enum class ColorMethod {
   Average,
   BestView,
   WeightedAverage,
+  NormalWeightedAverage,
   Median,
 };
 
@@ -23,17 +24,16 @@ public:
   void colorAveraging();
   void bestViewSelection();
   void weightedColorAveraging();
+  void normalWeightedColorAveraging();
   void medianColorSelection();
 
 private:
   // Helper: collect valid color samples for a voxel from all views
-  // Returns vector of (color, camera_center) pairs for each view where the
-  // voxel is visible
   struct ColorSample {
-    Eigen::Vector3d color; // RGB in [0, 255]
-    double distance_sq;       // Squared distance from voxel to camera center
-    double centerScore;    // How close the projection is to the image center
-                           // (normalized)
+    Eigen::Vector3d color;          // RGB in [0, 255]
+    Eigen::Vector3d view_direction; // Unit direction from voxel to camera
+    double distance_sq; // Squared distance from voxel to camera center
+    double centerScore; // 1 at the image center, 0 at a corner
   };
 
   // Per-view values that used to be recomputed for every single voxel/sample
@@ -44,6 +44,7 @@ private:
   };
 
   std::vector<ColorSample> collectColorSamples(const Voxel &voxel) const;
+  Eigen::Vector3d estimateOutwardNormal(const Voxel &voxel) const;
 
   // Builds one depth (z-)buffer per view: for each pixel, the squared
   // camera-distance of the closest occupied voxel that projects there

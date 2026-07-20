@@ -33,7 +33,7 @@ uv run --script --python 3.14 datasets/create_loader_config.py \
   --volume-min -0.02 -0.22 0.0 \
   --volume-max 0.2 0.06 0.22 \
   --resolution 120 150 120 \
-  --color-methods average best_view weighted_average median \
+  --color-methods average best_view weighted_average normal_weighted_average median \
   --workers 4
 ```
 
@@ -49,6 +49,8 @@ C++ executable. From the repo root, results go to
 `./local/results/<datetime>/<object>/...`. The config uses `{datetime}` as a
 placeholder, and C++ replaces it when the run starts. When several color methods
 are enabled, each method gets its own output folder.
+`normal_weighted_average` estimates surface normals from neighboring voxels and
+gives more weight to views that see the surface head-on.
 
 To make a config for only one object:
 
@@ -59,7 +61,7 @@ uv run --script --python 3.14 datasets/create_loader_config.py \
   --volume-min -0.02 -0.22 0.0 \
   --volume-max 0.2 0.06 0.22 \
   --resolution 120 150 120 \
-  --color-methods average best_view weighted_average median
+  --color-methods average best_view weighted_average normal_weighted_average median
 
 ./build/main local/configs/cat.voxel_carving_batch.yaml
 ```
@@ -84,7 +86,7 @@ objects:
       max: [0.2, 0.06, 0.22]
       resolution: [120, 150, 120]
     color:
-      methods: [average, best_view, weighted_average, median]
+      methods: [average, best_view, weighted_average, normal_weighted_average, median]
 ```
 
 Edit `voxel_grid.min`, `voxel_grid.max`, and `voxel_grid.resolution` when an
@@ -101,7 +103,7 @@ uv run --script --python 3.14 datasets/run_pipeline.py \
   --volume-min -0.02 -0.22 0.0 \
   --volume-max 0.2 0.06 0.22 \
   --resolution 120 150 120 \
-  --color-methods average best_view weighted_average median \
+  --color-methods average best_view weighted_average normal_weighted_average median \
   --workers 4
 ```
 

@@ -15,6 +15,8 @@ import argparse
 import math
 from dataclasses import dataclass
 from datetime import datetime
+from functools import lru_cache
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
@@ -25,7 +27,13 @@ Image.MAX_IMAGE_PIXELS = None
 
 ROOT = Path(__file__).resolve().parents[1]
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".ppm", ".pgm")
-DEFAULT_METHODS = ("average", "best_view", "weighted_average", "median")
+DEFAULT_METHODS = (
+    "average",
+    "best_view",
+    "weighted_average",
+    "normal_weighted_average",
+    "median",
+)
 CameraView = dict[str, np.ndarray | str]
 Mesh = tuple[np.ndarray, np.ndarray, np.ndarray]
 BASE_TILE_SIZE = (320, 240)
@@ -125,19 +133,13 @@ def read_ply(path: Path) -> Mesh:
     return vertices, colors, faces
 
 
+@lru_cache
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    paths = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if bold
-        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf"
-        if bold
-        else "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
-    ]
-    for path in paths:
-        if Path(path).is_file():
-            return ImageFont.truetype(path, size)
-    return ImageFont.load_default()
+    name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
+    try:
+        return ImageFont.truetype(name, size)
+    except OSError:
+        return ImageFont.load_default(size=size)
 
 
 def object_crop(
@@ -287,17 +289,80 @@ def column_data(
     return columns
 
 
-def draw_label_center(
+def label_layouts(text: str, max_lines: int) -> list[str]:
+    words = text.replace("_", " ").split()
+    layouts = []
+    for line_count in range(1, min(max_lines, len(words)) + 1):
+        for breaks in combinations(range(1, len(words)), line_count - 1):
+            starts = (0, *breaks)
+            ends = (*breaks, len(words))
+            layouts.append(
+                "\n".join(
+                    " ".join(words[start:end]) for start, end in zip(starts, ends)
+                )
+            )
+    return layouts
+
+
+def draw_fitted_label(
     draw: ImageDraw.ImageDraw,
     box: tuple[int, int, int, int],
     text: str,
     fill: tuple[int, int, int],
-    font_obj,
+    *,
+    bold: bool = False,
+    max_lines: int = 1,
+    horizontal: str = "center",
 ) -> None:
-    text_box = draw.textbbox((0, 0), text, font=font_obj)
-    x = box[0] + ((box[2] - box[0]) - (text_box[2] - text_box[0])) / 2
-    y = box[1] + ((box[3] - box[1]) - (text_box[3] - text_box[1])) / 2
-    draw.text((x, y), text, fill=fill, font=font_obj)
+    box_width = box[2] - box[0]
+    box_height = box[3] - box[1]
+    padding_x = max(1, round(box_width * 0.10))
+    padding_y = max(1, round(box_height * 0.12))
+    available_width = box_width - 2 * padding_x
+    available_height = box_height - 2 * padding_y
+
+    best: (
+        tuple[int, str, ImageFont.ImageFont, int, tuple[int, int, int, int]] | None
+    ) = None
+    for layout in label_layouts(text, max_lines):
+        lower, upper = 1, max(1, box_height * 2)
+        fitted = None
+        while lower <= upper:
+            size = (lower + upper) // 2
+            font_obj = font(size, bold)
+            spacing = max(1, size // 5)
+            bounds = draw.multiline_textbbox(
+                (0, 0), layout, font=font_obj, spacing=spacing, align="center"
+            )
+            width = bounds[2] - bounds[0]
+            height = bounds[3] - bounds[1]
+            if width <= available_width and height <= available_height:
+                fitted = (size, layout, font_obj, spacing, bounds)
+                lower = size + 1
+            else:
+                upper = size - 1
+        if fitted and (best is None or fitted[0] > best[0]):
+            best = fitted
+
+    if best is None:
+        return
+
+    _, layout, font_obj, spacing, bounds = best
+    text_width = bounds[2] - bounds[0]
+    text_height = bounds[3] - bounds[1]
+    if horizontal == "left":
+        x = box[0] + padding_x - bounds[0]
+    else:
+        x = box[0] + (box_width - text_width) / 2 - bounds[0]
+    y = box[1] + (box_height - text_height) / 2 - bounds[1]
+    draw.multiline_text(
+        (x, y),
+        layout,
+        fill=fill,
+        font=font_obj,
+        spacing=spacing,
+        align="center",
+    )
 
 
 def build_panorama(
@@ -324,16 +389,14 @@ def build_panorama(
 
     canvas = Image.new("RGB", (width, height), (238, 240, 243))
     draw = ImageDraw.Draw(canvas)
-    title_font = font(scaled(24, ui_scale), bold=True)
-    label_font = font(scaled(17, ui_scale), bold=True)
-    small_font = font(scaled(12, ui_scale))
-
     draw.rectangle((0, 0, width, title_height), fill=(32, 36, 41))
-    draw.text(
-        (scaled(16, ui_scale), scaled(10, ui_scale)),
+    draw_fitted_label(
+        draw,
+        (0, 0, width, title_height),
         f"{object_name} - {len(columns)} views",
-        fill=(255, 255, 255),
-        font=title_font,
+        (255, 255, 255),
+        bold=True,
+        horizontal="left",
     )
 
     y0 = title_height
@@ -342,19 +405,23 @@ def build_panorama(
         draw.rectangle(
             (x, y0, x + tile_width, y0 + column_label_height), fill=(222, 226, 231)
         )
-        draw_label_center(
+        draw_fitted_label(
             draw,
             (x, y0, x + tile_width, y0 + column_label_height),
             f"view {col_index + 1:02d}",
             (45, 49, 56),
-            small_font,
         )
 
     for row_index, row in enumerate(rows):
         y = title_height + column_label_height + row_index * tile_height
         draw.rectangle((0, y, label_width, y + tile_height), fill=(222, 226, 231))
-        draw_label_center(
-            draw, (0, y, label_width, y + tile_height), row, (35, 39, 45), label_font
+        draw_fitted_label(
+            draw,
+            (0, y, label_width, y + tile_height),
+            row,
+            (35, 39, 45),
+            bold=True,
+            max_lines=3,
         )
         for col_index, column in enumerate(columns):
             x = label_width + col_index * tile_width
